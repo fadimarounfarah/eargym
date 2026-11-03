@@ -1,6 +1,6 @@
 /* Audio engine.
  *
- * Plays Salamander Grand Piano samples through Tone.js. If Tone.js is missing,
+ * Plays Salamander Grand Piano samples (vendor/salamander/) through Tone.js. If Tone.js is missing,
  * a sample fails, or loading takes longer than 15 s, it switches to a built-in
  * additive piano synth instead.
  *
@@ -21,7 +21,14 @@ var PianoAudio = (function () {
 
   /* ---------- constants ---------- */
 
-  var SAMPLE_BASE_URL = 'https://tonejs.github.io/audio/salamander/';
+  // The samples ship with the app (vendor/salamander/), so they work offline
+  // once the service worker has cached them. Browsers refuse to fetch local
+  // files from a page opened from disk (file://), so there the same files are
+  // fetched from the Tone.js audio repo instead, which needs internet. If both
+  // fail, the 15 s timeout or the load error switches to the synth.
+  var LOCAL_SAMPLE_URL = 'vendor/salamander/';
+  var REMOTE_SAMPLE_URL = 'https://tonejs.github.io/audio/salamander/';
+  var SAMPLE_BASE_URL = window.location.protocol === 'file:' ? REMOTE_SAMPLE_URL : LOCAL_SAMPLE_URL;
   var LOAD_TIMEOUT_MS = 15000;
   var SAMPLE_VOLUME_DB = -8;
 
