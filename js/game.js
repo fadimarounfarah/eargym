@@ -22,7 +22,15 @@ var Game = (function () {
   var STREAK_CAP = 10;            // steps counted
   var WRONG_QUALITY_PENALTY = 75;
   var PIANO_KEY_PENALTY = 45;     // per missed or stray key in a piano chord
+  var TIMEOUT_PENALTY = 100;      // flat health cost when the question timer runs out
   var SUMMARY_CONFUSIONS = 5;
+
+  // Weak-note focus: a note's draw weight is 1 + FOCUS_K x (1 - accuracy), from
+  // its last FOCUS_WINDOW note answers, and only once it has FOCUS_MIN_ATTEMPTS.
+  var FOCUS_K = 3;
+  var FOCUS_WINDOW = 100;
+  var FOCUS_MIN_ATTEMPTS = 3;
+  var FOCUS_LEAN = 1.2;           // weights above this count as "leaning on" a note
 
   // Pause after a graded answer before the next question, by answer kind.
   // Piano chords get longer so there is time to read the marked keys.
@@ -32,13 +40,15 @@ var Game = (function () {
     chord: 1100,
     pianoNote: 1100,
     pianoRoot: 1300,
-    pianoChord: 1900
+    pianoChord: 1900,
+    timeout: 1300
   };
 
   // Playback spacing in seconds.
   var INTERVAL_GAP = 0.6;
   var ARP_GAP = 0.42;
   var ARP_BLOCK_PAUSE = 0.95;
+  var REFERENCE_GAP = 0.7;        // reference note first, then the target
 
   // Chords are always answered on a fixed two-octave board from C3, plus
   // drawn-but-unplayable keys on top for upper notes of high-rooted chords.
@@ -51,9 +61,9 @@ var Game = (function () {
   };
 
   var MODES = {
-    notes:     { label: 'Notes',     noun: 'note',     plural: 'notes' },
-    chords:    { label: 'Chords',    noun: 'chord',    plural: 'chords' },
-    intervals: { label: 'Intervals', noun: 'interval', plural: 'intervals' }
+    notes:     { label: 'Notes',     noun: 'note',     plural: 'notes',     title: 'Pitch Trainer',     icon: '\u266a' },
+    chords:    { label: 'Chords',    noun: 'chord',    plural: 'chords',    title: 'Chord Recognition', icon: '\u266c' },
+    intervals: { label: 'Intervals', noun: 'interval', plural: 'intervals', title: 'Interval Trainer',  icon: '\u266b' }
   };
 
   // How far off a miss was (pitch-class or interval distance).
@@ -162,6 +172,46 @@ var Game = (function () {
     return pool[Math.floor(rng() * pool.length)];
   }
 
+  // Weighted pick that never repeats the previous question, unless it is the
+  // only candidate. `weightOf(candidate)` gives each candidate's draw weight.
+  function pickWeighted(candidates, weightOf, previous, rng) {
+    var pool = candidates.length > 1
+      ? candidates.filter(function (k) { return k !== previous; })
+      : candidates;
+    var weights = pool.map(weightOf);
+    var total = weights.reduce(function (a, b) { return a + b; }, 0);
+    var r = rng() * total;
+    for (var i = 0; i < pool.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return pool[i];
+    }
+    return pool[pool.length - 1];
+  }
+
+  // Draw weights for the 12 pitch classes from recent history: 1 for a note
+  // with too few attempts, else 1 + 3 x (1 - accuracy). A note missed half the
+  // time comes up about 2.5 times as often as one that is always right.
+  function noteWeights(answers) {
+    var attempts = {}, right = {};
+    (answers || []).filter(function (a) { return a.k === 'note'; })
+      .slice(-FOCUS_WINDOW)
+      .forEach(function (a) {
+        attempts[a.t] = (attempts[a.t] || 0) + 1;
+        if (a.g === a.t) right[a.t] = (right[a.t] || 0) + 1;
+      });
+    return D.NOTES.map(function (n, pc) {
+      var tries = attempts[pc] || 0;
+      return tries >= FOCUS_MIN_ATTEMPTS ? 1 + FOCUS_K * (1 - (right[pc] || 0) / tries) : 1;
+    });
+  }
+
+  // For the setup screen: how many of the selected notes the focus leans on.
+  function focusInfo(settings, answers) {
+    var weights = noteWeights(answers);
+    var leaning = onIndices(settings.noteSel).filter(function (pc) { return weights[pc] > FOCUS_LEAN; }).length;
+    return { weights: weights, leaning: leaning };
+  }
+
   /* ---------- candidates and questions, per mode ---------- */
 
   // Every selected note in every enabled register, as MIDI numbers.
@@ -198,7 +248,13 @@ var Game = (function () {
 
   function makeQuestion(s, key, rng) {
     if (s.mode === 'notes') {
-      return { key: key, midi: key, pc: D.pc(key), name: D.pcToName(key), pitches: [key], gap: 0, blockAfter: 0 };
+      // With a reference pitch set, it sounds first and the target follows.
+      var ref = s.refPitch || 0;
+      return {
+        key: key, midi: key, pc: D.pc(key), name: D.pcToName(key), mult: 1,
+        pitches: ref ? [ref, key] : [key],
+        gap: ref ? REFERENCE_GAP : 0, blockAfter: 0
+      };
     }
     var parts = String(key).split('|');
     var low = parseInt(parts[0], 10);
@@ -279,9 +335,22 @@ var Game = (function () {
     // Pick the next question. Returns it, or null once the match is over.
     function nextQuestion() {
       if (over) return null;
-      var key = pickQuestion(candidates, previousKey, rng);
+      var key, mult = 1;
+      if (mode === 'notes' && s.focusWeak) {
+        // Weights come from history as it stands now, so they follow the match.
+        var w = noteWeights(Store.history().answers);
+        var pool = onIndices(s.noteSel);
+        var totalW = pool.reduce(function (sum, pc) { return sum + w[pc]; }, 0);
+        key = pickWeighted(candidates, function (m) { return w[D.pc(m)]; }, previousKey, rng);
+        // A note drawn twice as often pays half, so a focused match and an even
+        // one are worth about the same at equal skill.
+        mult = (totalW / pool.length) / w[D.pc(key)];
+      } else {
+        key = pickQuestion(candidates, previousKey, rng);
+      }
       previousKey = key;
       question = makeQuestion(s, key, rng);
+      question.mult = mult;
       awaiting = true;
       roundPlays = 0;
       return question;
@@ -358,7 +427,7 @@ var Game = (function () {
       var delta = 0;
       if (grade.correct) {
         streak++;
-        delta = correctPoints(streak, 1, grade.base);
+        delta = correctPoints(streak, grade.mult, grade.base);
         points += delta;
         hits++;
       } else {
@@ -411,6 +480,7 @@ var Game = (function () {
         correct: correct,
         penalty: notePenalty(d),
         base: BASE_POINTS,
+        mult: question.mult,
         message: correct ? 'Correct — ' + name : 'That was ' + name + missSuffix(d),
         delay: viaPiano ? DELAY_MS.pianoNote : DELAY_MS.note,
         method: viaPiano ? 'piano' : 'buttons',
@@ -501,6 +571,17 @@ var Game = (function () {
       });
     }
 
+    // The keys of the pending chord on the practice board, starting at
+    // `preferredRoot` (a MIDI key) or, if null, in the lowest octave. Pulled
+    // down an octave if the top note would run off the drawn board.
+    function chordKeysOnBoard(preferredRoot) {
+      var shape = D.CHORDS[question.quality].intervals;
+      var boardTop = CHORD_BOARD.low + CHORD_BOARD.octaves * 12 - 1 + CHORD_BOARD.extra;
+      var anchor = preferredRoot === null ? CHORD_BOARD.low + question.rootPc : preferredRoot;
+      if (anchor + shape[shape.length - 1] > boardTop) anchor -= 12;
+      return shape.map(function (i) { return anchor + i; });
+    }
+
     /* Chords on the piano, root and type: the set of keys pressed.
      * Octave-agnostic but voicing-sensitive: the lowest key names the root and
      * the gaps above it must match the chord's shape exactly. C-E-G anywhere
@@ -520,11 +601,8 @@ var Game = (function () {
       var correct = rootOk && shapeOk;
 
       // Show the right chord where the player put it if the root was right,
-      // otherwise in the lower octave. Pull it down if it would run off the board.
-      var boardTop = CHORD_BOARD.low + CHORD_BOARD.octaves * 12 - 1 + CHORD_BOARD.extra;
-      var anchor = rootOk ? sel[0] : CHORD_BOARD.low + question.rootPc;
-      if (anchor + shape[shape.length - 1] > boardTop) anchor -= 12;
-      var expected = shape.map(function (i) { return anchor + i; });
+      // otherwise in the lower octave.
+      var expected = chordKeysOnBoard(rootOk ? sel[0] : null);
 
       var ok = sel.filter(function (m) { return expected.indexOf(m) !== -1; });
       var no = sel.filter(function (m) { return expected.indexOf(m) === -1; });
@@ -549,6 +627,49 @@ var Game = (function () {
         method: 'piano',
         logs: logs,
         detail: { keys: { ok: ok, no: no, missed: missed } }
+      });
+    }
+
+    /* ---------- timeout ---------- */
+
+    /* The question timer ran out. A miss with a flat 100 health penalty. There
+     * is no guess, so no answer or confusion pair is logged, but the question
+     * still goes into history.plays. `viaPiano` says which input was showing.
+     * Returns null if no question is pending, else the same shape as the other
+     * answers, with `timedOut: true`, the target fields and, on the piano,
+     * `keys.missed` listing the right keys to show. */
+    function timeout(viaPiano) {
+      if (over || !awaiting) return null;
+      var answer, detail = {};
+      if (mode === 'notes') {
+        answer = viaPiano ? D.midiToName(question.midi) : question.name;
+        detail = { targetPc: question.pc, targetMidi: question.midi };
+        if (viaPiano) detail.keys = { ok: [], no: [], missed: [question.midi] };
+      } else if (mode === 'intervals') {
+        answer = question.text;
+        detail = { targetSemi: question.semi };
+      } else {
+        // Type-only asks for the type alone, so the answer is just the type.
+        answer = s.guessTarget === 'type' ? D.CHORDS[question.quality].name : question.text;
+        detail = { targetRoot: question.rootPc, targetQual: question.quality };
+        if (viaPiano) {
+          detail.keys = {
+            ok: [], no: [],
+            missed: s.guessTarget === 'root' ? [CHORD_BOARD.low + question.rootPc] : chordKeysOnBoard(null)
+          };
+        }
+      }
+      detail.timedOut = true;
+      return settle({
+        correct: false,
+        penalty: TIMEOUT_PENALTY,
+        base: BASE_POINTS,
+        mult: 1,
+        message: 'Time \u2014 it was ' + answer,
+        delay: DELAY_MS.timeout,
+        method: viaPiano ? 'piano' : 'buttons',
+        logs: [],
+        detail: detail
       });
     }
 
@@ -610,6 +731,7 @@ var Game = (function () {
       answerChord: answerChord,
       answerChordRoot: answerChordRoot,
       answerChordKeys: answerChordKeys,
+      timeout: timeout,
       summary: summary
     };
   }
@@ -622,6 +744,8 @@ var Game = (function () {
     PIANO_KEY_PENALTY: PIANO_KEY_PENALTY,
     DELAY_MS: DELAY_MS,
     CHORD_BOARD: CHORD_BOARD,
+    TIMEOUT_PENALTY: TIMEOUT_PENALTY,
+    REFERENCE_GAP: REFERENCE_GAP,
     DIFFICULTY: DIFFICULTY,
     MODES: MODES,
 
@@ -640,6 +764,8 @@ var Game = (function () {
     noteCandidates: noteCandidates,
     candidatesFor: candidatesFor,
     pickQuestion: pickQuestion,
+    noteWeights: noteWeights,
+    focusInfo: focusInfo,
     createMatch: createMatch
   };
 })();

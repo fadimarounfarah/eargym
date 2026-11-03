@@ -10,172 +10,245 @@
 <body>
   <main class="card" id="card">
 
-    <header class="top">
-      <h1>Pitch Trainer</h1>
-      <!-- Temporary: becomes part of the setup screen in a later step. -->
-      <div class="seg" id="diffSeg" role="group" aria-label="Difficulty">
-        <button type="button" data-diff="easy">Easy</button>
-        <button type="button" data-diff="medium">Medium</button>
-        <button type="button" data-diff="hard">Hard</button>
-      </div>
-    </header>
-    <p class="subtitle" id="subtitle">Name the note you hear.</p>
+    <h1 id="title">Ear Trainer</h1>
+    <p class="subtitle" id="subtitle">Train a skill.</p>
 
-    <!-- Temporary developer panel: mode and match options. Replaced by the
-         menu and setup screens in a later step. Built by js/app.js. -->
-    <details class="dev dev-setup" id="devSetup">
-      <summary>Dev: match setup</summary>
-      <div class="dev-body" id="setupBody">
-        <div class="field">
-          <div class="field-label">Mode</div>
-          <div class="seg" id="modeSeg" role="group" aria-label="Mode">
-            <button type="button" data-mode="notes">Notes</button>
-            <button type="button" data-mode="chords">Chords</button>
-            <button type="button" data-mode="intervals">Intervals</button>
-          </div>
-        </div>
+    <!-- Learn and Stats are not built yet. -->
+    <nav class="tabs" aria-label="Sections">
+      <button type="button" class="tab active" aria-current="page">Practice</button>
+      <button type="button" class="tab" disabled><span>Learn</span><small>coming soon</small></button>
+      <button type="button" class="tab" disabled><span>Stats</span><small>coming soon</small></button>
+    </nav>
 
-        <div id="setupNotes">
-          <div class="field">
-            <div class="field-label">Notes <span class="field-note" id="noteCount"></span></div>
-            <div class="chips" id="noteChips"></div>
-            <div class="mini-row">
-              <button type="button" class="mini" data-npreset="all">All 12</button>
-              <button type="button" class="mini" data-npreset="naturals">Naturals only</button>
-            </div>
-          </div>
-          <div class="field">
-            <div class="field-label">Registers</div>
-            <div class="chips" data-regs="registers"></div>
-          </div>
-        </div>
-
-        <div id="setupIntervals">
-          <div class="field">
-            <div class="field-label">Intervals <span class="field-note" id="ivlCount"></span></div>
-            <div class="chips" id="ivlChips"></div>
-            <div class="mini-row">
-              <button type="button" class="mini" data-ipreset="wide">Wide gaps</button>
-              <button type="button" class="mini" data-ipreset="thirds">Thirds only</button>
-              <button type="button" class="mini" data-ipreset="all">All 12</button>
-            </div>
-          </div>
-          <div class="field">
-            <div class="field-label">Direction</div>
-            <div class="seg" id="dirSeg" role="group" aria-label="Direction">
-              <button type="button" data-dir="asc">Ascending</button>
-              <button type="button" data-dir="desc">Descending</button>
-              <button type="button" data-dir="mixed">Mixed</button>
-            </div>
-          </div>
-          <div class="field">
-            <label class="field-label" for="ivlRootSel">Root</label>
-            <select id="ivlRootSel" class="select"></select>
-          </div>
-          <div class="field">
-            <div class="field-label">Registers of the lower note <span class="field-note">shared with Notes</span></div>
-            <div class="chips" data-regs="registers"></div>
-          </div>
-        </div>
-
-        <div id="setupChords">
-          <div class="field">
-            <div class="field-label">Chord types <span class="field-note" id="qualCount"></span></div>
-            <div class="chips" id="qualChips"></div>
-            <div class="mini-row">
-              <button type="button" class="mini" data-qpreset="basic">Basic</button>
-              <button type="button" class="mini" data-qpreset="triads">Triads</button>
-              <button type="button" class="mini" data-qpreset="sevenths">Sevenths</button>
-              <button type="button" class="mini" data-qpreset="all">All</button>
-            </div>
-          </div>
-          <div class="field">
-            <label class="field-label" for="chordRootSel">Root</label>
-            <select id="chordRootSel" class="select"></select>
-          </div>
-          <div class="field">
-            <div class="field-label">Registers of the root</div>
-            <div class="chips" data-regs="chordRegisters"></div>
-          </div>
-          <div class="field">
-            <div class="field-label">What to guess <span class="field-note" id="guessNote"></span></div>
-            <div class="seg" id="guessSeg" role="group" aria-label="What to guess">
-              <button type="button" data-guess="both">Both</button>
-              <button type="button" data-guess="root">Root only</button>
-              <button type="button" data-guess="type">Type only</button>
-            </div>
-          </div>
-          <div class="field">
-            <div class="field-label">Playback</div>
-            <div class="seg" id="playSeg" role="group" aria-label="Playback">
-              <button type="button" data-play="block">Block</button>
-              <button type="button" data-play="arp">Arpeggio</button>
-            </div>
-          </div>
-        </div>
-
-        <p class="setup-problem hidden" id="setupProblem"></p>
-      </div>
-    </details>
-
-    <!-- Score strip -->
-    <section class="score" aria-label="Score">
-      <div class="stat">
-        <span class="num" id="points">0</span>
-        <span class="lbl">points</span>
-        <span class="delta" id="delta" aria-hidden="true"></span>
-      </div>
-      <div class="stat">
-        <span class="num"><span id="qNum">1</span><span class="of">/<span id="qTotal">24</span></span></span>
-        <span class="lbl" id="qLabel">note</span>
-      </div>
-      <div class="stat">
-        <span class="num" id="streak">0</span>
-        <span class="lbl">streak</span>
-      </div>
-      <div class="stat">
-        <span class="num" id="hits">0</span>
-        <span class="lbl">hits</span>
+    <!-- ============ Practice: menu ============ -->
+    <section id="menuView" aria-label="Exercises">
+      <div class="menu-list" id="menuList">
+        <button type="button" class="ex-card" data-ex="notes">
+          <span class="ex-top">
+            <span class="ex-icon" aria-hidden="true">&#9834;</span>
+            <span class="ex-text">
+              <span class="ex-name">Pitch Trainer</span>
+              <span class="ex-sub">Name a single note</span>
+            </span>
+            <span class="ex-chev" aria-hidden="true">&#8250;</span>
+          </span>
+          <span class="ex-bar"><span class="ex-fill" data-fill="notes"></span></span>
+          <span class="ex-stat" data-stat="notes">Not played yet</span>
+        </button>
+        <button type="button" class="ex-card" data-ex="chords">
+          <span class="ex-top">
+            <span class="ex-icon" aria-hidden="true">&#9836;</span>
+            <span class="ex-text">
+              <span class="ex-name">Chord Recognition</span>
+              <span class="ex-sub">Name a chord's root and type</span>
+            </span>
+            <span class="ex-chev" aria-hidden="true">&#8250;</span>
+          </span>
+          <span class="ex-bar"><span class="ex-fill" data-fill="chords"></span></span>
+          <span class="ex-stat" data-stat="chords">Not played yet</span>
+        </button>
+        <button type="button" class="ex-card" data-ex="intervals">
+          <span class="ex-top">
+            <span class="ex-icon" aria-hidden="true">&#9835;</span>
+            <span class="ex-text">
+              <span class="ex-name">Interval Trainer</span>
+              <span class="ex-sub">Name the distance between two notes</span>
+            </span>
+            <span class="ex-chev" aria-hidden="true">&#8250;</span>
+          </span>
+          <span class="ex-bar"><span class="ex-fill" data-fill="intervals"></span></span>
+          <span class="ex-stat" data-stat="intervals">Not played yet</span>
+        </button>
       </div>
     </section>
 
-    <div class="health hidden" id="health">
-      <div class="health-row"><span>Health</span><span id="healthVal">0</span></div>
-      <div class="health-track"><div class="health-fill" id="healthFill"></div></div>
-    </div>
+    <!-- ============ Practice: setup ============ -->
+    <section id="setupView" class="hidden" aria-label="Match setup">
+      <button type="button" class="back-link" id="setupBack">&#8249; All exercises</button>
+      <div class="setup-head">
+        <span class="ex-icon" id="setupIcon" aria-hidden="true"></span>
+        <span class="setup-name" id="setupName"></span>
+      </div>
 
-    <!-- Question -->
-    <div id="game">
-      <div class="method-row" id="methodRow">
-        <span class="method-label">Answer with</span>
+      <!-- items in play -->
+      <div class="field" data-for="notes">
+        <div class="field-label">Notes <span class="field-note" id="noteCount"></span></div>
+        <div class="chips" id="noteChips"></div>
+        <div class="mini-row">
+          <button type="button" class="mini" data-npreset="all">All 12</button>
+          <button type="button" class="mini" data-npreset="naturals">Naturals only</button>
+        </div>
+      </div>
+
+      <div class="field" data-for="chords">
+        <div class="field-label">Chord types <span class="field-note" id="qualCount"></span></div>
+        <div class="chips" id="qualChips"></div>
+        <div class="mini-row">
+          <button type="button" class="mini" data-qpreset="basic">Maj + min</button>
+          <button type="button" class="mini" data-qpreset="triads">All triads</button>
+          <button type="button" class="mini" data-qpreset="sevenths">All 7ths</button>
+          <button type="button" class="mini" data-qpreset="all">Everything</button>
+        </div>
+      </div>
+
+      <div class="field" data-for="intervals">
+        <div class="field-label">Intervals <span class="field-note" id="ivlCount"></span></div>
+        <div class="chips" id="ivlChips"></div>
+        <div class="mini-row">
+          <button type="button" class="mini" data-ipreset="wide">Wide gaps</button>
+          <button type="button" class="mini" data-ipreset="thirds">Thirds only</button>
+          <button type="button" class="mini" data-ipreset="all">All 12</button>
+        </div>
+      </div>
+
+      <!-- registers, for every exercise -->
+      <div class="field">
+        <div class="field-label"><span id="regLabel">Registers</span> <span class="field-note" id="regNote"></span></div>
+        <div class="chips" id="regChips"></div>
+      </div>
+
+      <!-- Pitch only -->
+      <div class="field" data-for="notes">
+        <div class="field-label">Weak-note focus</div>
+        <button type="button" class="chip" id="focusToggle" aria-pressed="false">Focus weak notes</button>
+        <p class="field-help" id="focusNote"></p>
+      </div>
+
+      <div class="field" data-for="notes">
+        <label class="field-label" for="refSel">Reference pitch</label>
+        <select id="refSel" class="select"></select>
+        <p class="field-help">Plays first, then the note you name 0.7 s later.</p>
+      </div>
+
+      <!-- Chords only -->
+      <div class="field" data-for="chords">
+        <label class="field-label" for="chordRootSel">Chord root</label>
+        <select id="chordRootSel" class="select"></select>
+      </div>
+
+      <div class="field" data-for="chords">
+        <div class="field-label">You are guessing</div>
+        <div class="seg" id="guessSeg" role="group" aria-label="What to guess">
+          <button type="button" data-guess="both">Both</button>
+          <button type="button" data-guess="root">Root</button>
+          <button type="button" data-guess="type">Type</button>
+        </div>
+        <p class="field-help" id="guessNote"></p>
+      </div>
+
+      <div class="field" data-for="chords">
+        <div class="field-label">Played as</div>
+        <div class="seg" id="playSeg" role="group" aria-label="Playback">
+          <button type="button" data-play="block">Block</button>
+          <button type="button" data-play="arp">Arpeggio</button>
+        </div>
+        <p class="field-help" id="playNote"></p>
+      </div>
+
+      <!-- Intervals only -->
+      <div class="field" data-for="intervals">
+        <div class="field-label">Direction</div>
+        <div class="seg" id="dirSeg" role="group" aria-label="Direction">
+          <button type="button" data-dir="asc">Ascending</button>
+          <button type="button" data-dir="desc">Descending</button>
+          <button type="button" data-dir="mixed">Mixed</button>
+        </div>
+      </div>
+
+      <div class="field" data-for="intervals">
+        <label class="field-label" for="ivlRootSel">Root note</label>
+        <select id="ivlRootSel" class="select"></select>
+      </div>
+
+      <!-- every exercise -->
+      <div class="field">
+        <div class="field-label">Time per question</div>
+        <div class="seg" id="timeSeg" role="group" aria-label="Time per question">
+          <button type="button" data-time="0">Off</button>
+          <button type="button" data-time="5">5 s</button>
+          <button type="button" data-time="10">10 s</button>
+          <button type="button" data-time="20">20 s</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-label">Difficulty</div>
+        <div class="seg" id="diffSeg" role="group" aria-label="Difficulty">
+          <button type="button" data-diff="easy">Easy</button>
+          <button type="button" data-diff="medium">Medium</button>
+          <button type="button" data-diff="hard">Hard</button>
+        </div>
+        <p class="field-help" id="diffNote"></p>
+      </div>
+
+      <p class="setup-problem hidden" id="setupProblem"></p>
+      <button type="button" class="btn primary" id="startBtn">&#9654;&nbsp; Practice now</button>
+    </section>
+
+    <!-- ============ Practice: game ============ -->
+    <section id="gameView" class="hidden" aria-label="Match">
+      <div class="game-top">
+        <button type="button" class="back-link" id="gameBack">&#8249; Settings</button>
         <div class="seg" id="methodSeg" role="group" aria-label="Answer with">
           <button type="button" data-method="buttons">Buttons</button>
           <button type="button" data-method="piano">Piano</button>
           <button type="button" data-method="names">Names</button>
           <button type="button" data-method="semitones">Semitones</button>
         </div>
+        <span class="method-note hidden" id="methodNote">Buttons only for type answers</span>
       </div>
-      <button type="button" class="play" id="playBtn" disabled>
-        <span class="play-icon" aria-hidden="true">&#9654;</span> Play
-      </button>
-      <p class="hint" id="hint">loading piano samples…</p>
-      <div class="feedback" id="feedback" aria-live="polite"></div>
-      <p class="drill" id="drill"></p>
-      <div id="answers"></div>
-      <div class="piano-wrap hidden" id="pianoWrap">
-        <div id="piano"></div>
-      </div>
-      <button type="button" class="btn submit hidden" id="submitBtn" disabled>Submit answer</button>
-    </div>
 
-    <!-- End-of-match summary: replaces the answers when the match ends -->
-    <section class="summary hidden" id="summary" aria-live="polite">
-      <h2 id="sumTitle">Match complete</h2>
-      <div class="sum-points" id="sumPoints">0</div>
-      <div class="sum-label">points</div>
-      <dl class="sum-stats" id="sumStats"></dl>
-      <div class="sum-breakdown" id="sumBreakdown"></div>
-      <button type="button" class="btn" id="newMatchBtn">New match</button>
+      <!-- Score strip -->
+      <section class="score" aria-label="Score">
+        <div class="stat">
+          <span class="num" id="points">0</span>
+          <span class="lbl">points</span>
+          <span class="delta" id="delta" aria-hidden="true"></span>
+        </div>
+        <div class="stat">
+          <span class="num"><span id="qNum">1</span><span class="of">/<span id="qTotal">24</span></span></span>
+          <span class="lbl" id="qLabel">note</span>
+        </div>
+        <div class="stat">
+          <span class="num" id="streak">0</span>
+          <span class="lbl">streak</span>
+        </div>
+        <div class="stat">
+          <span class="num" id="hits">0</span>
+          <span class="lbl">hits</span>
+        </div>
+      </section>
+
+      <div class="health hidden" id="health">
+        <div class="health-row"><span>Health</span><span id="healthVal">0</span></div>
+        <div class="health-track"><div class="health-fill" id="healthFill"></div></div>
+      </div>
+
+      <!-- Question -->
+      <div id="game">
+        <button type="button" class="play" id="playBtn" disabled>
+          <span class="play-icon" aria-hidden="true">&#9654;</span> Play
+        </button>
+        <p class="hint" id="hint">loading piano samples…</p>
+        <div class="timer-track hidden" id="timerTrack" role="presentation"><div class="timer-fill" id="timerFill"></div></div>
+        <div class="feedback" id="feedback" aria-live="polite"></div>
+        <p class="drill" id="drill"></p>
+        <div id="answers"></div>
+        <div class="piano-wrap hidden" id="pianoWrap">
+          <div id="piano"></div>
+        </div>
+        <button type="button" class="btn submit hidden" id="submitBtn" disabled>Submit answer</button>
+      </div>
+
+      <!-- End-of-match summary: replaces the answers when the match ends -->
+      <section class="summary hidden" id="summary" aria-live="polite">
+        <h2 id="sumTitle">Match complete</h2>
+        <div class="sum-points" id="sumPoints">0</div>
+        <div class="sum-label">points</div>
+        <dl class="sum-stats" id="sumStats"></dl>
+        <div class="sum-breakdown" id="sumBreakdown"></div>
+        <button type="button" class="btn" id="newMatchBtn">New match</button>
+      </section>
     </section>
 
     <!-- Temporary developer tools: the step-1 sound check -->
@@ -209,6 +282,7 @@
   <script src="js/storage.js"></script>
   <script src="js/keyboard.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/setup.js"></script>
   <script src="js/soundcheck.js"></script>
   <script src="js/app.js"></script>
 </body>
