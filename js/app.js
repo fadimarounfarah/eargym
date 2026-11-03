@@ -270,7 +270,11 @@
       els.timerFill.classList.toggle('low', left < 0.25);
       if (left > 0) return;
       stopQuestionTimer();
-      if (awaiting()) showResult(match.timeout(usingPiano()));
+      if (!awaiting()) return;
+      // Cut the question off at once, as the original does, so a long
+      // arpeggio cannot keep ringing over the "Time — it was ..." message.
+      PianoAudio.silenceAll();
+      showResult(match.timeout(usingPiano()));
     }, TIMER_TICK_MS);
   }
 
