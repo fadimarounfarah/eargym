@@ -6,7 +6,7 @@
  * Setup.init(). Answer buttons and piano keys are handled by delegation on
  * their containers, so redrawing them can never stack handlers.
  *
- * Depends on: MusicData, PianoAudio, Store, Keyboard, Game, Setup, Learn.
+ * Depends on: MusicData, PianoAudio, Store, Keyboard, Game, Setup, Learn, Stats.
  */
 (function () {
   'use strict';
@@ -18,7 +18,7 @@
     card: $('card'), title: $('title'), subtitle: $('subtitle'),
     tabs: $('tabs'),
     menuView: $('menuView'), menuList: $('menuList'),
-    setupView: $('setupView'), gameView: $('gameView'), learnView: $('learnView'),
+    setupView: $('setupView'), gameView: $('gameView'), learnView: $('learnView'), statsView: $('statsView'),
     gameBack: $('gameBack'), methodSeg: $('methodSeg'), methodNote: $('methodNote'),
     points: $('points'), qNum: $('qNum'), qTotal: $('qTotal'), qLabel: $('qLabel'),
     streak: $('streak'), hits: $('hits'), delta: $('delta'),
@@ -44,7 +44,7 @@
   Store.loadSettings();
   Store.loadHistory();
 
-  var view = 'menu';              // menu | setup | game (Practice tab), or learn (Learn tab)
+  var view = 'menu';              // menu | setup | game (Practice tab), learn (Learn tab) or stats (Stats tab)
   var match = null;
   var audioReady = false;
   var timer = null;               // pending "next question" or "show summary"
@@ -114,7 +114,10 @@
   function updateHeading() {
     var mode = Store.settings().mode;
     var meta = Game.MODES[mode];
-    if (view === 'learn') {
+    if (view === 'stats') {
+      els.title.textContent = 'Your Ear';
+      els.subtitle.textContent = 'Where you are strong, and what you mix up.';
+    } else if (view === 'learn') {
       els.title.textContent = 'Learn ' + Game.MODES[Store.settings().learnMode].label;
       els.subtitle.textContent = 'Explore freely \u2014 nothing is scored here.';
     } else if (view === 'menu') {
@@ -130,37 +133,42 @@
     }
   }
 
+  // Which tab a view belongs to.
+  function tabOf(name) { return name === 'learn' || name === 'stats' ? name : 'practice'; }
+
   function showView(name) {
     // Leaving Learn silences it, so nothing keeps sounding behind another screen.
     if (view === 'learn' && name !== 'learn') Learn.hide();
+    if (view === 'stats' && name !== 'stats') Stats.hide();
     view = name;
     els.menuView.classList.toggle('hidden', name !== 'menu');
     els.setupView.classList.toggle('hidden', name !== 'setup');
     els.gameView.classList.toggle('hidden', name !== 'game');
     els.learnView.classList.toggle('hidden', name !== 'learn');
+    els.statsView.classList.toggle('hidden', name !== 'stats');
     each(els.tabs.querySelectorAll('[data-tab]'), function (t) {
-      var on = t.getAttribute('data-tab') === (name === 'learn' ? 'learn' : 'practice');
+      var on = t.getAttribute('data-tab') === tabOf(name);
       t.classList.toggle('active', on);
       if (on) t.setAttribute('aria-current', 'page');
       else t.removeAttribute('aria-current');
     });
     if (name === 'menu') renderMenu();
     if (name === 'learn') Learn.show();
+    if (name === 'stats') Stats.show();
     updateHeading();
     updateWidth();
   }
 
-  // Practice and Learn. Leaving a match for another tab abandons it.
+  // Practice, Learn and Stats. Leaving a match for another tab abandons it, and
+  // switching tabs silences everything. Tapping the tab you are on does nothing.
   function onTab(e) {
     var tab = e.target.closest ? e.target.closest('button[data-tab]') : null;
     if (!tab || tab.disabled) return;
     var name = tab.getAttribute('data-tab');
-    if (name === 'learn' && view !== 'learn') {
-      if (view === 'game') { stopMatchActivity(); match = null; }
-      showView('learn');
-    } else if (name === 'practice' && view === 'learn') {
-      showView('menu');
-    }
+    if (name === tabOf(view)) return;
+    if (view === 'game') { stopMatchActivity(); match = null; }
+    PianoAudio.silenceAll();
+    showView(name === 'practice' ? 'menu' : name);
   }
 
   // The setup screen's "Refresher" link: Learn opens on the same sub-mode.
@@ -659,6 +667,8 @@
     onPractice: practiceFromLearn,
     onModeChange: updateHeading
   });
+
+  Stats.init();
 
   PianoAudio.onReady(function (label, kind) {
     audioReady = true;

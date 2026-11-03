@@ -61,19 +61,19 @@ Scripts load in this order. Each one may use the globals defined above it.
 
 | File | Global | Purpose | Status |
 | --- | --- | --- | --- |
-| `index.html` | | Markup and script tags: tab bar, Practice menu, setup screen, match view, Learn view, and the collapsed "Dev: sound check" section | Steps 4–5 |
-| `css/styles.css` | | Theme tokens and all styles | Steps 1–5 |
+| `index.html` | | Markup and script tags: tab bar, Practice menu, setup screen, match view, Learn view, Stats view, and the collapsed "Dev: sound check" section | Steps 4–6 |
+| `css/styles.css` | | Theme tokens and all styles | Steps 1–6 |
 | Tone.js (cdnjs) | `Tone` | Audio library | |
 | `js/data.js` | `MusicData` | Notes, chord qualities, intervals and song references, presets, registers, MIDI and pitch-class helpers | Step 1 |
 | `js/audio.js` | `PianoAudio` | Sample loading, fallback synth, `playPitches`, `silenceAll` | Step 1 |
-| `js/storage.js` | `Store` | Settings and history load/save, validation, migration, caps. Export/import still to come | Step 2 |
+| `js/storage.js` | `Store` | Settings and history load/save, validation, migration, caps, history export / merge-import / reset | Steps 2–6 |
 | `js/keyboard.js` | `Keyboard` | Shared keyboard renderer for the practice board and Learn | Steps 3–5 |
 | `js/game.js` | `Game` | Match logic for all three modes: round generation (incl. weak-note focus and reference pitch), grading for buttons and piano, timeout grading, scoring, health, replay cost, history logging, summary. No DOM, no audio, no clock | Steps 3–4 |
 | `js/setup.js` | `Setup` | The "Set up your match" screen: chips, presets, registers, focus, reference pitch, time, difficulty. Draws once, listens once | Step 4 |
 | `js/learn.js` | `Learn` | The Learn tab: Notes (anchor trainer), Intervals and Chords comparators, "Practice this". Unscored, never writes history | Step 5 |
-| `js/stats.js` | `Stats` | Stats tab | Planned |
+| `js/stats.js` | `Stats` | The Stats tab ("Your Ear"): trend, listens, matches, per-note bars, confusions, matrix, interval and chord-type bars, and the export / import / reset controls. Read-only on the history except through `Store` | Step 6 |
 | `js/soundcheck.js` | | Temporary Dev-section test buttons (random note, chord, interval). Delete once the real UI exists | Step 1 |
-| `js/app.js` | | Navigation (Practice and Learn tabs; menu, setup, game), the menu progress cards, the match and answer area (buttons or piano), the input toggle and the question timer; wires every listener once. Stats tab still to come | Steps 3–5 |
+| `js/app.js` | | Navigation (Practice, Learn and Stats tabs; menu, setup, game), the menu progress cards, the match and answer area (buttons or piano), the input toggle and the question timer; wires every listener once | Steps 3–6 |
 
 ## Module notes
 
@@ -84,7 +84,7 @@ Scripts load in this order. Each one may use the globals defined above it.
 - Samples are loaded with `Tone.ToneAudioBuffers` and played as `Tone.ToneBufferSource` voices tracked in our own list. This replaces `Tone.Sampler`, whose `triggerAttackRelease` stops tracking a note as soon as it is scheduled, so `releaseAll()` could never stop it. Sound settings are unchanged: 20 samples (C, D#, F#, A, octaves 3–7), nearest-sample pitch shifting, 0.06s release, −8 dB.
 - The sample and synth paths share the mute → stop voices → wait → unmute sequence.
 
-**`Store`** (`js/storage.js`): `loadSettings()` returns a complete, validated settings object (defaults for anything missing or invalid, old `range` migrated to `registers`, `intervals` accepted for `mode` and `learnMode`). `settings()` returns the live object (read-only) and `change(fn)` is the only way screens modify it: it runs `fn` on a copy, re-validates, saves and returns the result. A pinned chord root forces `guessTarget: 'type'` on load, and `refPitch` must be 0 or a note in C3–B5. `saveSettings(s)` re-validates and writes a given object. The whole settings schema lives here, even fields no screen uses yet, so saving from one screen never drops another screen's values. `loadHistory()`, `history()`, `pushAnswer(kind, target, guess)`, `pushPlay(correct, plays, mode)`, `pushMatch(m)` and `saveHistory()` handle the log. The `push*` calls apply the caps; call `saveHistory()` once after a batch. Saves do nothing until the matching load has run, so defaults can never overwrite stored data.
+**`Store`** (`js/storage.js`): `loadSettings()` returns a complete, validated settings object (defaults for anything missing or invalid, old `range` migrated to `registers`, `intervals` accepted for `mode` and `learnMode`). `settings()` returns the live object (read-only) and `change(fn)` is the only way screens modify it: it runs `fn` on a copy, re-validates, saves and returns the result. A pinned chord root forces `guessTarget: 'type'` on load, and `refPitch` must be 0 or a note in C3–B5. `saveSettings(s)` re-validates and writes a given object. The whole settings schema lives here, even fields no screen uses yet, so saving from one screen never drops another screen's values. `loadHistory()`, `history()`, `pushAnswer(kind, target, guess)`, `pushPlay(correct, plays, mode)`, `pushMatch(m)` and `saveHistory()` handle the log. The `push*` calls apply the caps; call `saveHistory()` once after a batch. `exportJson()` returns the history as pretty-printed JSON (settings are never included). `mergeHistory(data)` folds parsed export data in without ever replacing: it rejects anything without `answers` and `matches` arrays (`{ ok: false, error: 'shape' }`), drops malformed entries (counted in `skipped`), de-duplicates answers on `ts|k|t|g` and matches and plays on `ts`, sorts by `ts`, re-applies all three caps (4,000 answers, 500 matches, 4,000 plays, oldest first) and saves. `resetHistory()` empties the arrays in place, so the object from `history()` stays live for every reader. Saves do nothing until the matching load has run, so defaults can never overwrite stored data.
 
 **`Game`** (`js/game.js`): `createMatch(settings, rng?)` takes a full settings object (normalized through `Store.normalizeSettings`, copied once: changing a setting means a new match). It returns `{ state, nextQuestion, listen, answerNote, answerInterval, answerChord, answerChordRoot, answerChordKeys, chordNeeds, summary, settings, qualities, intervals }`. Each mode only supplies its candidates (`candidatesFor`), its question (pitches, gap, blockAfter, text) and a grade; one shared `settle()` does scoring, streak, health, history logging and the end of the match, so new modes never duplicate it. `listen()` counts a play and charges the replay cost. The question counter shows `answered + 1`, as the old app did.
 
@@ -107,6 +107,16 @@ Scripts load in this order. Each one may use the globals defined above it.
 - "Practice this": Notes only switches to Pitch and keeps the Pitch settings. Intervals makes the two compared intervals the pool (not offered when A and B are the same, since a match needs 2) and takes the direction. Chords makes the two compared types the pool. If the resulting settings cannot start a match (for example type-only with one type) the setup screen opens with the reason.
 - The Refresher link on the setup screen sets `learnMode` to the exercise's mode and opens Learn.
 
+**`Stats`** (`js/stats.js`): `init()` attaches every listener once (delegation on the view, one `change` on the file input); `show()` redraws from `Store.history()` as it stands; `hide()` drops a half-answered reset prompt and the last message. Every table is derived from the raw log on each draw, never stored. The derivations (`buildTables`, `rowStats`, `confusions`, `replayStats`, `playsInScope`, `matrixCells`, `sparkPoints`) are pure and exported.
+
+- Scope: Recent keeps the last 100 answers of each kind (`note`, `root`, `qual`, `ivl`) and the last 100 entries of the plays log. All time keeps everything. The trend (last 30 matches, best score over all of that exercise) and the last-8 match list ignore the toggle. The scope and the trend exercise are session-only.
+- Entries whose target or guess is out of range (a note outside 0–11, an unknown chord type, an interval outside 1–12) are ignored, so a damaged history cannot break the tab.
+- Per-note bars use `note` answers only. Under 4 attempts is drawn faded; 4 or more attempts under 50% is flagged weak (exactly 50% is not). Confusions and the matrix: the six biggest across `note` and `root` answers, roots tagged "(root)", and the matrix covers `note` answers only. Interval and chord-type bars appear only once they have data.
+- Replays count correct answers only. The per-mode list includes Intervals.
+- The empty state replaces the analysis when there are no answers, but Export, Import and Reset stay visible so a backup can be restored onto an empty history (the old app hid them).
+- Reset asks for confirmation inline (no `window.confirm`), and the prompt is dropped when the tab is left. Export is named `pitch-trainer-history-YYYY-MM-DD.json` using the local date.
+- Anything that reads the history (weak-note focus, the menu progress bars) reads `Store.history()` when it needs it, so it sees an import or reset at once. The match summary comes from the match's own in-memory record.
+
 **`Keyboard`** (`js/keyboard.js`): `render(container, { low, octaves, extra, labels, isDead, minKeyPx })` draws white and black keys; `extra` semitones above the playable range are drawn as unplayable ghost keys. It attaches no listeners: callers add one click listener and use `keyFromEvent(e)`, which returns null for ghost and dead keys. `mark`, `toggle` and `clearMarks` handle the `sel`, `ok`, `no` and `missed` classes. The chord board is fixed at C3 plus two octaves plus 11 ghost keys (`Game.CHORD_BOARD`); the Notes board spans the enabled registers.
 
 ## Working rules
@@ -114,5 +124,5 @@ Scripts load in this order. Each one may use the globals defined above it.
 - Work on a feature branch per step. Never commit to or merge into `main` unless asked.
 - There are no automated tests. After each change, open `index.html` from disk and check by ear. Once the full app exists: all three exercises with both input methods, plus Learn and Stats.
 - Fix the "Known issues" from DESIGN.md as each area is rebuilt (unrecognised piano chord shapes log the root only, by decision in step 3). Do not reproduce them: no listeners added inside render/sync functions; accept `intervals` when loading `mode` and `learnMode`; include intervals in per-mode replay stats; cap `plays` on import.
-- The Stats tab is shown disabled with "coming soon" until it is built. Switching tabs silences all sound, and leaving a match for another tab abandons it (nothing is logged for an unfinished match).
+- Switching tabs silences all sound, and leaving a match for another tab abandons it (nothing is logged for an unfinished match).
 - Keep the two known quirks only if they are harmless: there is no "random" chord playback (only `block` and `arp`). The match counter label should name the mode, not always say "Note".

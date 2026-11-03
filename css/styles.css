@@ -447,6 +447,250 @@ input:focus-visible {
   margin-top: 14px;
 }
 
+/* ---------- stats ---------- */
+
+.stats-empty {
+  margin: 4px 0 6px;
+  padding: 18px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+  color: var(--text-dim);
+  text-align: center;
+  font-size: 14px;
+}
+
+.stats-label {
+  margin: 20px 0 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+#trendSeg {
+  display: flex;
+  margin-bottom: 12px;
+}
+
+#trendSeg button {
+  flex: 1;
+}
+
+.mini-note {
+  padding: 8px 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.trend-title {
+  margin: 10px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.trend-title .mini {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.spark {
+  margin-bottom: 6px;
+}
+
+.spark svg {
+  display: block;
+  width: 100%;
+  height: 54px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.spark-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.spark-line.points {
+  stroke: var(--amber);
+}
+
+.spark-line.accuracy {
+  stroke: var(--good);
+}
+
+.spark-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.spark-legend b {
+  color: var(--text);
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 74px;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 13px;
+}
+
+.bar-name {
+  font-weight: 600;
+}
+
+.bar-track {
+  display: block;
+  height: 14px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.bar-fill.high {
+  background: var(--good);
+}
+
+.bar-fill.mid {
+  background: var(--amber);
+}
+
+.bar-fill.low {
+  background: var(--bad);
+}
+
+.bar-num {
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-row.weak .bar-name {
+  color: var(--bad);
+}
+
+.bar-row.thin {
+  opacity: 0.5;
+}
+
+.matrix-scroll {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.matrix {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(20px, 1fr));
+  gap: 2px;
+  min-width: 290px;
+}
+
+.mcell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text-dim);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mcell.hdr {
+  background: transparent;
+  color: var(--text-dim);
+  font-weight: 700;
+  font-size: 9.5px;
+}
+
+.mcell.diag {
+  background: var(--good);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+.mcell.err {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* In the match list the date stays on one line and the left side wraps instead. */
+#statsView .conf-row > .cnt {
+  flex: none;
+  white-space: nowrap;
+}
+
+.stats-io {
+  margin-top: 8px;
+  padding-top: 2px;
+  border-top: 1px solid var(--line);
+}
+
+.io-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 6px;
+}
+
+.io-msg {
+  min-height: 1.4em;
+  margin: 4px 0 10px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.io-msg.good {
+  color: var(--good);
+}
+
+.io-msg.bad {
+  color: var(--bad);
+}
+
+.btn.danger,
+.chip.danger {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+.btn.danger:hover:not(:disabled) {
+  border-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+}
+
+.reset-confirm {
+  padding: 12px 14px;
+  border: 1px solid var(--bad);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bad) 8%, var(--bg));
+}
+
+.reset-confirm p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
 /* ---------- question timer ---------- */
 
 .timer-track {
