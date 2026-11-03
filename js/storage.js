@@ -12,6 +12,8 @@
  * schema lives here, even fields a screen does not use yet, so saving from one
  * screen never drops what another screen stored.
  *
+ * History can be exported, merged from an export (never replaced) and reset.
+ *
  * The live settings object is held here: read it with settings(), change it
  * with change(fn). Every change is re-validated and saved.
  *
@@ -260,6 +262,96 @@ var Store = (function () {
     return match;
   }
 
+  /* ---------- export, import, reset ---------- */
+
+  var ANSWER_KINDS = ['note', 'root', 'qual', 'ivl'];
+  var MODE_NAMES = ['notes', 'chords', 'intervals'];
+
+  function isNum(v) { return typeof v === 'number' && isFinite(v); }
+
+  function byTime(a, b) { return (Number(a.ts) || 0) - (Number(b.ts) || 0); }
+
+  // The history as pretty-printed JSON, exactly what is stored. Settings are
+  // not part of it.
+  function exportJson() {
+    return JSON.stringify(history, null, 2);
+  }
+
+  // Imported entries are checked before they are kept, so a bad file can never
+  // put something into the history that would break the Stats tab.
+  function cleanAnswer(a) {
+    if (!isObject(a) || ANSWER_KINDS.indexOf(a.k) === -1 || !isNum(a.ts)) return null;
+    if (a.t === undefined || a.t === null || a.g === undefined || a.g === null) return null;
+    return { k: a.k, t: String(a.t), g: String(a.g), ts: a.ts };
+  }
+
+  function cleanMatch(m) {
+    if (!isObject(m) || !isNum(m.ts) || !isNum(m.points) || !isNum(m.acc)) return null;
+    if (MODE_NAMES.indexOf(m.mode) === -1) return null;
+    return m;
+  }
+
+  function cleanPlay(p) {
+    if (!isObject(p) || !isNum(p.ts) || !isNum(p.plays) || p.plays < 1 || MODE_NAMES.indexOf(p.mode) === -1) return null;
+    return { ts: p.ts, correct: !!p.correct, plays: Math.floor(p.plays), mode: p.mode };
+  }
+
+  function answerKey(a) { return a.ts + '|' + a.k + '|' + a.t + '|' + a.g; }
+
+  // Fold parsed export data into the history. Never replaces: what is already
+  // on the device stays. Answers are de-duplicated on ts|k|t|g, matches and
+  // plays on ts. Then everything is sorted by time and every cap is applied
+  // again, oldest first.
+  //
+  // Returns { ok: false, error: 'shape' } if `data` is not a history export
+  // (it needs answers and matches lists), else
+  // { ok: true, matches, answers, plays, skipped } with the totals now held and
+  // how many incoming entries were dropped as malformed.
+  function mergeHistory(data) {
+    if (!isObject(data) || !Array.isArray(data.answers) || !Array.isArray(data.matches)) {
+      return { ok: false, error: 'shape' };
+    }
+    var skipped = 0;
+
+    function fold(into, incoming, clean, keyOf) {
+      var seen = {};
+      into.forEach(function (e) { seen[keyOf(e)] = true; });
+      incoming.forEach(function (raw) {
+        var e = clean(raw);
+        if (!e) { skipped++; return; }
+        var key = keyOf(e);
+        if (!seen[key]) { seen[key] = true; into.push(e); }
+      });
+      into.sort(byTime);
+    }
+    function byTs(e) { return String(e.ts); }
+
+    fold(history.answers, data.answers, cleanAnswer, answerKey);
+    fold(history.matches, data.matches, cleanMatch, byTs);
+    fold(history.plays, Array.isArray(data.plays) ? data.plays : [], cleanPlay, byTs);
+
+    cap(history.answers, MAX_ANSWERS);
+    cap(history.matches, MAX_MATCHES);
+    cap(history.plays, MAX_PLAYS);
+    saveHistory();
+    return {
+      ok: true,
+      matches: history.matches.length,
+      answers: history.answers.length,
+      plays: history.plays.length,
+      skipped: skipped
+    };
+  }
+
+  // Empty the history. The arrays are emptied in place, so anything holding the
+  // object from history() still sees the live, empty history.
+  function resetHistory() {
+    history.answers.length = 0;
+    history.matches.length = 0;
+    history.plays.length = 0;
+    saveHistory();
+  }
+
   // Call once after a batch of pushes. Does nothing before loadHistory().
   function saveHistory() {
     if (!storageOK || !historyLoaded) return;
@@ -290,6 +382,9 @@ var Store = (function () {
     pushAnswer: pushAnswer,
     pushPlay: pushPlay,
     pushMatch: pushMatch,
-    saveHistory: saveHistory
+    saveHistory: saveHistory,
+    exportJson: exportJson,
+    mergeHistory: mergeHistory,
+    resetHistory: resetHistory
   };
 })();

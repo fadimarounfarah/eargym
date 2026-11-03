@@ -13,11 +13,10 @@
     <h1 id="title">Ear Trainer</h1>
     <p class="subtitle" id="subtitle">Train a skill.</p>
 
-    <!-- Stats is not built yet. -->
     <nav class="tabs" id="tabs" aria-label="Sections">
       <button type="button" class="tab active" data-tab="practice">Practice</button>
       <button type="button" class="tab" data-tab="learn">Learn</button>
-      <button type="button" class="tab" disabled><span>Stats</span><small>coming soon</small></button>
+      <button type="button" class="tab" data-tab="stats">Stats</button>
     </nav>
 
     <!-- ============ Practice: menu ============ -->
@@ -345,6 +344,73 @@
       <p class="field-help" id="practiceNote"></p>
     </section>
 
+    <!-- ============ Stats ============ -->
+    <section id="statsView" class="hidden" aria-label="Stats">
+      <div class="stats-empty hidden" id="statsEmpty">
+        No answers recorded yet. Play a match and your accuracy, mix-ups and progress show up here.
+      </div>
+
+      <div id="statsBody">
+        <div class="seg" id="scopeSeg" role="group" aria-label="Which answers to count">
+          <button type="button" data-scope="recent">Recent 100</button>
+          <button type="button" data-scope="all">All time</button>
+        </div>
+        <p class="field-help">Recent counts your last 100 answers of each kind.</p>
+
+        <div class="stats-label">Progress</div>
+        <div class="seg" id="trendSeg" role="group" aria-label="Exercise for the trend"></div>
+        <div id="trend"></div>
+
+        <div class="stats-label">Listens</div>
+        <div id="replayBox"></div>
+
+        <div class="stats-label">Recent matches</div>
+        <div id="matchList"></div>
+
+        <div class="stats-label">Accuracy by note</div>
+        <div id="noteBars"></div>
+
+        <div class="stats-label">Most confused</div>
+        <div id="confusionList"></div>
+
+        <div id="matrixWrap">
+          <div class="stats-label">Note confusion matrix</div>
+          <p class="field-help">Rows are what you heard, columns what you answered.</p>
+          <div class="matrix-scroll"><div class="matrix" id="matrix"></div></div>
+        </div>
+
+        <div id="ivlSection" class="hidden">
+          <div class="stats-label">Accuracy by interval</div>
+          <div id="ivlBars"></div>
+        </div>
+
+        <div id="qualSection" class="hidden">
+          <div class="stats-label">Accuracy by chord type</div>
+          <div id="qualBars"></div>
+        </div>
+      </div>
+
+      <!-- Always shown, so a backup can be restored onto an empty history. -->
+      <div class="stats-io">
+        <div class="stats-label">Your data</div>
+        <p class="field-help">Saved in this browser only. Export a copy to back it up or move it to another device. Importing adds to what is here and never replaces it. Settings are not included.</p>
+        <div class="io-row">
+          <button type="button" class="chip" id="exportBtn">Export</button>
+          <button type="button" class="chip" id="importBtn">Import</button>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+        </div>
+        <div class="io-msg" id="ioMsg" role="status"></div>
+        <button type="button" class="btn danger" id="resetBtn">Reset all history</button>
+        <div class="reset-confirm hidden" id="resetConfirm" role="alert">
+          <p>Delete every answer, match and listen on this device? This cannot be undone. Export first if you want a copy.</p>
+          <div class="io-row">
+            <button type="button" class="chip danger" id="resetYes">Yes, reset</button>
+            <button type="button" class="chip" id="resetNo">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Temporary developer tools: the step-1 sound check -->
     <details class="dev">
       <summary>Dev: sound check</summary>
@@ -378,6 +444,7 @@
   <script src="js/game.js"></script>
   <script src="js/setup.js"></script>
   <script src="js/learn.js"></script>
+  <script src="js/stats.js"></script>
   <script src="js/soundcheck.js"></script>
   <script src="js/app.js"></script>
 </body>
