@@ -61,18 +61,18 @@ Scripts load in this order. Each one may use the globals defined above it.
 
 | File | Global | Purpose | Status |
 | --- | --- | --- | --- |
-| `index.html` | | Markup and script tags | Step 1: sound-check page only |
-| `css/styles.css` | | Theme tokens and all styles | Step 1 |
+| `index.html` | | Markup and script tags: the match (all three modes), a temporary "Dev: match setup" panel and the "Dev: sound check" section | Step 3 |
+| `css/styles.css` | | Theme tokens and all styles | Steps 1–3 |
 | Tone.js (cdnjs) | `Tone` | Audio library | |
 | `js/data.js` | `MusicData` | Notes, chord qualities, intervals and song references, presets, registers, MIDI and pitch-class helpers | Step 1 |
 | `js/audio.js` | `PianoAudio` | Sample loading, fallback synth, `playPitches`, `silenceAll` | Step 1 |
-| `js/soundcheck.js` | | Temporary step-1 test buttons. Delete once the real UI exists | Step 1 |
-| `js/storage.js` | `Store` | Settings and history load/save, validation, migration, export/import | Planned |
-| `js/keyboard.js` | `Keyboard` | Shared `renderKeyboard` for the practice board and Learn | Planned |
-| `js/game.js` | `Game` | Round generation, scoring, health, timer, match flow | Planned |
+| `js/storage.js` | `Store` | Settings and history load/save, validation, migration, caps. Export/import still to come | Step 2 |
+| `js/keyboard.js` | `Keyboard` | Shared keyboard renderer for the practice board and, later, Learn | Step 3 |
+| `js/game.js` | `Game` | Match logic for all three modes: round generation, grading for buttons and piano, scoring, health, replay cost, history logging, summary. No DOM, no audio. Timer, reference pitch and weak-note focus still to come | Step 3 |
 | `js/learn.js` | `Learn` | Learn tab | Planned |
 | `js/stats.js` | `Stats` | Stats tab | Planned |
-| `js/app.js` | | Tabs, navigation, wiring all listeners once | Planned |
+| `js/soundcheck.js` | | Temporary Dev-section test buttons (random note, chord, interval). Delete once the real UI exists | Step 1 |
+| `js/app.js` | | Draws the match and answer area (buttons or piano), the input toggle and the dev setup panel; wires every listener once. Tabs, menu and setup screens still to come | Step 3 |
 
 ## Module notes
 
@@ -83,9 +83,22 @@ Scripts load in this order. Each one may use the globals defined above it.
 - Samples are loaded with `Tone.ToneAudioBuffers` and played as `Tone.ToneBufferSource` voices tracked in our own list. This replaces `Tone.Sampler`, whose `triggerAttackRelease` stops tracking a note as soon as it is scheduled, so `releaseAll()` could never stop it. Sound settings are unchanged: 20 samples (C, D#, F#, A, octaves 3–7), nearest-sample pitch shifting, 0.06s release, −8 dB.
 - The sample and synth paths share the mute → stop voices → wait → unmute sequence.
 
+**`Store`** (`js/storage.js`): `loadSettings()` returns a complete, validated settings object (defaults for anything missing or invalid, old `range` migrated to `registers`, `intervals` accepted for `mode` and `learnMode`). `saveSettings(s)` re-validates and writes it. The whole settings schema lives here, even fields no screen uses yet, so saving from one screen never drops another screen's values. `loadHistory()`, `history()`, `pushAnswer(kind, target, guess)`, `pushPlay(correct, plays, mode)`, `pushMatch(m)` and `saveHistory()` handle the log. The `push*` calls apply the caps; call `saveHistory()` once after a batch. Saves do nothing until the matching load has run, so defaults can never overwrite stored data.
+
+**`Game`** (`js/game.js`): `createMatch(settings, rng?)` takes a full settings object (normalized through `Store.normalizeSettings`, copied once: changing a setting means a new match). It returns `{ state, nextQuestion, listen, answerNote, answerInterval, answerChord, answerChordRoot, answerChordKeys, chordNeeds, summary, settings, qualities, intervals }`. Each mode only supplies its candidates (`candidatesFor`), its question (pitches, gap, blockAfter, text) and a grade; one shared `settle()` does scoring, streak, health, history logging and the end of the match, so new modes never duplicate it. `listen()` counts a play and charges the replay cost. The question counter shows `answered + 1`, as the old app did.
+
+- Rules exported for checking on their own: `notePenalty`, `correctPoints(streak, mult, base)`, `missSuffix`, `intervalDistance`, `shapeToQuality`, `pickQuestion`, `setupProblem`, `pianoAllowed`, `effectiveMethod`, `boardFor`.
+- Points base: 100, or 150 when naming both root and type of a chord (buttons or piano).
+- Chord buttons: halves not asked count as given; with one quality in play the type is filled in. Wrong root = note-distance penalty, wrong quality = flat 75.
+- Piano: Notes answer by pitch class in any octave. Chord root-only is one key. Chord root-and-type is the set of held keys, graded octave-agnostic but voicing-sensitive, 45 per missed or stray key. A played shape that is no known chord logs the root entry only (decided in step 3; DESIGN.md left it open).
+- Intervals use the Notes `registers` for the lower note (the settings schema has no separate field, as in the old app) and have no piano answers.
+- Setup rules: pinning a chord root forces type-only (app remembers the earlier target and restores it on unpin); type-only forces buttons through `effectiveMethod`, without overwriting the saved `method`; type-only with fewer than 2 qualities cannot start.
+
+**`Keyboard`** (`js/keyboard.js`): `render(container, { low, octaves, extra, labels, isDead })` draws white and black keys; `extra` semitones above the playable range are drawn as unplayable ghost keys. It attaches no listeners: callers add one click listener and use `keyFromEvent(e)`, which returns null for ghost and dead keys. `mark`, `toggle` and `clearMarks` handle the `sel`, `ok`, `no` and `missed` classes. The chord board is fixed at C3 plus two octaves plus 11 ghost keys (`Game.CHORD_BOARD`); the Notes board spans the enabled registers.
+
 ## Working rules
 
 - Work on a feature branch per step. Never commit to or merge into `main` unless asked.
 - There are no automated tests. After each change, open `index.html` from disk and check by ear. Once the full app exists: all three exercises with both input methods, plus Learn and Stats.
-- Fix the "Known issues" from DESIGN.md as each area is rebuilt. Do not reproduce them: no listeners added inside render/sync functions; accept `intervals` when loading `mode` and `learnMode`; log a quality miss for unrecognised piano chord shapes; include intervals in per-mode replay stats; cap `plays` on import.
+- Fix the "Known issues" from DESIGN.md as each area is rebuilt (unrecognised piano chord shapes log the root only, by decision in step 3). Do not reproduce them: no listeners added inside render/sync functions; accept `intervals` when loading `mode` and `learnMode`; include intervals in per-mode replay stats; cap `plays` on import.
 - Keep the two known quirks only if they are harmless: there is no "random" chord playback (only `block` and `arp`). The match counter label should name the mode, not always say "Note".
