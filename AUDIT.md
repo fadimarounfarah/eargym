@@ -1,6 +1,8 @@
 # Step 7 audit: rebuild vs. original
 
-Audited on 2026-11-03 against `main` at `f44edd0` (after step 6, Stats). No app code was changed.
+Audited on 2026-11-03 against `main` at `f44edd0` (after step 6, Stats). The audit itself changed no app code.
+
+**Status after step 8 (branch `step-8-audit-fixes`).** Fixed: #1 timeout silence (§9a), #2 pinned-root guess target (§4a), #3 corrupt history (§6c), #5 interval miss wording (§1a, interval part), #6 Dev section, and the Sampler and stale-notes items of #7 (DESIGN.md drift). Still open: #4 (`method` note), the rest of #7, #8 (cosmetic), and the chord root-only "off by" suffix in §1a, which DESIGN.md supports. Each fixed item below is marked **Fixed in step 8**.
 
 **Sources compared**
 
@@ -22,8 +24,8 @@ Audited on 2026-11-03 against `main` at `f44edd0` (after step 6, Stats). No app 
 
 Every number on the "Preserve exactly" list matches: scoring, penalties, health, the replay cost, the match length, the audio timings, the 15-second fallback, the storage keys and the history shape. All six "Known issues" from DESIGN.md are fixed. The differences below are mostly small. Only two affect behavior in a way a player would notice:
 
-- A timed-out question keeps sounding, where the original cut it off (§9a).
-- On the setup screen, tapping the already-selected **Type** while a root is pinned makes the app forget the earlier guess target (§4a).
+- A timed-out question keeps sounding, where the original cut it off (§9a). **Fixed in step 8.**
+- On the setup screen, tapping the already-selected **Type** while a root is pinned makes the app forget the earlier guess target (§4a). **Fixed in step 8.**
 
 Everything else is a deliberate fix of an original bug, a decision written down in CLAUDE.md, or a cosmetic change.
 
@@ -64,6 +66,8 @@ Everything else is a deliberate fix of an original bug, a decision written down 
 - Chord root-only on buttons. Original `orig:1686` `if (guessTarget !== 'both') msg = 'That was ' + text;`. Rebuild `game.js:536` `else if (askRoot && !askType) message = 'That was ' + question.text + missSuffix(d);`.
 
 DESIGN.md ("Misses name the size of the error") supports adding the suffix. But for intervals the suffix reuses the pitch-class names, so guessing m2 for P8 reads "off by a tritone", although the sizes are 11 semitones apart. The 6 is only the penalty cap. See fix list #5.
+
+**Fixed in step 8 (intervals).** DESIGN.md gives no size tag for intervals (its examples are a semitone and a minor 3rd, which are note distances), so interval misses now use the original's wording, `That was m3 — minor 3rd` (plus ` descending` when it was). The capped distance only sets the penalty, so a tritone can no longer be reported for an 11-semitone mistake. The chord root-only suffix is unchanged: it names a real pitch-class distance, which DESIGN.md supports.
 
 ## 2. Round generation
 
@@ -124,6 +128,8 @@ DESIGN.md says "never the same as the one just before it". The rebuild is right.
 
 Repro: guess = Both → pin root D → tap Type → set root back to Random. The original restores Both; the rebuild stays on Type. DESIGN.md says "Unpinning restores the earlier guess target", which supports the original. See fix list #2.
 
+**Fixed in step 8.** `setup.js` now clears the remembered target on a guess-button tap only when the root is random. While a root is pinned, tapping Type leaves it alone, so pin, tap Type, unpin returns to Both.
+
 **4b. A pinned root no longer overwrites the saved method (differs; documented).** The original permanently changes the saved method: `orig:3104` `if (!pianoAllowed() && method === 'piano') method = 'buttons';`. So after unpinning, the piano does not come back, even though the comment at `orig:3094` says it should. The rebuild leaves `method` alone and derives the input through `game.js:126-128` `effectiveMethod`. DESIGN.md ("forces type-only … and therefore buttons. Unpinning restores the earlier guess target") is closer to the rebuild, and CLAUDE.md records the decision.
 
 ## 5. History
@@ -174,6 +180,8 @@ DESIGN.md only says "method". Nothing reads this field today. The rebuild's valu
 - Rebuild `storage.js:173`, `storage.js:227` `if (!(e instanceof SyntaxError)) storageOK = false;`. The app starts with an empty history and overwrites the corrupt blob on the first save.
 
 DESIGN.md is silent. The rebuild keeps the app usable, but a corrupted history becomes unrecoverable as soon as one question is answered. See fix list #3.
+
+**Fixed in step 8.** If `pitchTrainer.history.v1` cannot be parsed, saving history is off for the session (`Store.historyPaused()`), so the stored data is never overwritten. Settings still save. Stats shows a one-line notice, and Import and Reset refuse with a message (they would otherwise overwrite the damaged data). Valid JSON of the wrong shape is still treated as before (loaded as empty); only an unparseable blob pauses saving.
 
 ## 7. Learn
 
@@ -242,6 +250,8 @@ From a fresh session (`practiceView = 'menu'`) the player lands on the menu whil
 
 In the rebuild, `app.js:273` `showResult(match.timeout(usingPiano()))` leads to `app.js:529-552`, which only stops the timer. The sound is silenced only when the next question is drawn, 1.3 s later (`app.js:469` → `stopMatchActivity`). A long arpeggio can therefore keep ringing over the "Time — it was …" message. DESIGN.md is silent, so this follows the original. See fix list #1.
 
+**Fixed in step 8.** The timer callback in `app.js` now calls `PianoAudio.silenceAll()` first, then shows the "Time — it was …" message.
+
 **9b. The synth path now waits 95 ms (differs; documented).** The original synth path stops voices and plays at once, with no mute and no wait (`orig:1291-1294`). The rebuild runs the shared mute → wait → unmute sequence for the synth too (`audio.js:309-319`), adding about 0.1 s of latency on the fallback. DESIGN.md describes the sequence without naming an engine, and CLAUDE.md records sharing it. The rebuild also ends synth voices at the note duration (2.6 / 1.9 s) instead of letting them decay naturally (about 3.3 s). At that point the fundamental is already below −60 dB, so the cut cannot be heard.
 
 ---
@@ -250,7 +260,7 @@ In the rebuild, `app.js:273` `showResult(match.timeout(usingPiano()))` leads to 
 
 | Original behavior | Rebuild | Notes |
 | --- | --- | --- |
-| A timeout silences the question at once (`orig:2942`) | **missing** | §9a, fix list #1 |
+| A timeout silences the question at once (`orig:2942`) | ~~**missing**~~ **Fixed in step 8** | §9a, fix list #1 |
 | Leaving a match for Learn or Stats and coming back resumes it, with the score kept and a new question drawn (`orig:2638` `else applyLayout();` → `orig:3187` `nextRound();`) | Replaced. `app.js:169` `if (view === 'game') { stopMatchActivity(); match = null; }` abandons it. | Deliberate (CLAUDE.md: "leaving a match for another tab abandons it"). Leave as is unless players miss it. |
 | The summary appears the moment the last answer is graded (`orig:1456-1457`) | Differs. `app.js:543` `timer = setTimeout(showSummary, res.delay);` shows the feedback for 1.1–1.9 s first. | Cosmetic. The rebuild's way lets the last answer's colours be seen. |
 | The question timer starts after the 95 ms settle (`orig:3293` `await playPitches(…)` then `orig:3296`) | Differs. The timer starts on the tap (`app.js:569`), before the sound. | Negligible (~0.1 s) |
@@ -262,19 +272,19 @@ The rebuild also adds a few things the original lacked: a storage-blocked notice
 
 ## DESIGN.md drift (doc-only, no code change)
 
-- The audio section still says `Tone.Sampler`. The rebuild uses `Tone.ToneAudioBuffers` plus its own voices, for the reason CLAUDE.md gives.
-- "Notes for Claude Code" still points at `pitch-trainer_1.html` and says to edit it rather than rewrite. Both are stale now that the rebuild exists.
+- ~~The audio section still says `Tone.Sampler`.~~ **Fixed in step 8.** The audio section now describes `Tone.ToneAudioBuffers` plus the app's own tracked voices. The rebuild uses `Tone.ToneAudioBuffers` plus its own voices, for the reason CLAUDE.md gives.
+- ~~"Notes for Claude Code" still points at `pitch-trainer_1.html` and says to edit it rather than rewrite.~~ **Fixed in step 8.** It now points at `index.html` and the file layout in CLAUDE.md. (The "If the file gets split" and "Suggested first pass" paragraphs below it were left as they were.)
 - The Known-issues table can be marked resolved. All six are fixed: listeners are attached once by delegation, `intervals` loads, unknown shapes log the root only (a decision), interval replays are listed, `plays` is capped on import, and the leftover code was not carried over.
 
 ---
 
 ## Prioritized fix list
 
-1. **Silence on timeout** (§9a). When `res.timedOut` is set (or inside the timeout path in `app.js:273`), call `PianoAudio.silenceAll()`, as the original did. A player can notice this.
-2. **Keep the pre-pin guess target when Type is tapped while pinned** (§4a). In `setup.js:234-236`, only clear `guessBeforePin` when the root is random, or when the tapped target differs from the current one. This is what DESIGN.md asks for.
-3. **Decide what happens to corrupt stored JSON** (§6c). Recommended: don't overwrite an unparseable `pitchTrainer.history.v1`. Either keep saving off for history in that session, as the original did, or copy the raw string to a backup key before the first save. Today one answered question destroys it.
+1. ✅ **Fixed in step 8.** **Silence on timeout** (§9a). When `res.timedOut` is set (or inside the timeout path in `app.js:273`), call `PianoAudio.silenceAll()`, as the original did. A player can notice this.
+2. ✅ **Fixed in step 8.** **Keep the pre-pin guess target when Type is tapped while pinned** (§4a). In `setup.js:234-236`, only clear `guessBeforePin` when the root is random, or when the tapped target differs from the current one. This is what DESIGN.md asks for.
+3. ✅ **Fixed in step 8** (history saving pauses for the session; no backup key). **Decide what happens to corrupt stored JSON** (§6c). Recommended: don't overwrite an unparseable `pitchTrainer.history.v1`. Either keep saving off for history in that session, as the original did, or copy the raw string to a backup key before the first save. Today one answered question destroys it.
 4. **Record what `matches[].method` means** (§5a). Keep the rebuild's "input actually used". Add one line to DESIGN.md / CLAUDE.md so future readers don't treat `"buttons"` on old Intervals matches as a bug. Optionally log Names vs Semitones as well.
-5. **Interval miss wording** (§1a). Drop `missSuffix` for intervals, or say "off by N semitones" with the real `|guess − answer|`. The capped distance is right for the penalty but wrong as a label ("off by a tritone" for m2 vs P8).
-6. **Remove the Dev sound-check section.** `index.html:415` `<details class="dev">` and `js/soundcheck.js` still ship. CLAUDE.md says to delete them once the real UI exists, and it now does.
-7. **Update DESIGN.md** for the drift listed above (Sampler, the stale notes for Claude Code, the resolved Known issues). Also write down the documented decisions it is silent on: abandoning a match when the tab changes, the anchor's above/below naming, and `previousKey` persisting across matches.
+5. ✅ **Fixed in step 8** (original's wording, no tag). **Interval miss wording** (§1a). Drop `missSuffix` for intervals, or say "off by N semitones" with the real `|guess − answer|`. The capped distance is right for the penalty but wrong as a label ("off by a tritone" for m2 vs P8).
+6. ✅ **Fixed in step 8** (markup, `js/soundcheck.js`, its CSS, `MusicData.randomItem`, and the CLAUDE.md mentions). **Remove the Dev sound-check section.** `index.html:415` `<details class="dev">` and `js/soundcheck.js` still ship. CLAUDE.md says to delete them once the real UI exists, and it now does.
+7. ◐ **Partly fixed in step 8** (Sampler paragraph and the `pitch-trainer_1.html` reference only; the Known-issues table and the "also write down" decisions are still open). **Update DESIGN.md** for the drift listed above (Sampler, the stale notes for Claude Code, the resolved Known issues). Also write down the documented decisions it is silent on: abandoning a match when the tab changes, the anchor's above/below naming, and `previousKey` persisting across matches.
 8. **Cosmetic, optional:** match the original's faded-number styling only if wanted (§8a; DESIGN.md slightly favours the rebuild), the flat-sparkline position (§8c), and the per-sub-mode "Practice this" label.
