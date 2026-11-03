@@ -1,5 +1,8 @@
-/* Temporary step-1 page logic: three buttons that prove data.js and audio.js
- * work together. Replaced by the real app in later steps.
+/* Temporary developer tools: three buttons that play a random note, chord and
+ * interval, so audio can be checked by ear. Lives in the collapsed "Dev"
+ * section of the page. Delete once the real UI exists.
+ *
+ * Does not start the audio engine; js/app.js does that once.
  */
 (function () {
   'use strict';
@@ -21,14 +24,14 @@
   function names(pitches) { return pitches.map(D.midiToName).join(' – '); }
 
   function show(title, detail) {
-    $('readout').innerHTML = '';
+    $('devReadout').innerHTML = '';
     var strong = document.createElement('strong');
     strong.textContent = title;
     var span = document.createElement('div');
     span.className = 'detail';
     span.textContent = detail;
-    $('readout').appendChild(strong);
-    $('readout').appendChild(span);
+    $('devReadout').appendChild(strong);
+    $('devReadout').appendChild(span);
   }
 
   function playNote() {
@@ -41,7 +44,7 @@
     var root = randomMidi();
     var q = D.randomItem(D.QUALITY_KEYS);
     var pitches = D.chordPitches(root, q);
-    var arp = $('arpToggle').checked;
+    var arp = $('devArp').checked;
     PianoAudio.playPitches(pitches, arp ? ARP_GAP : 0, arp ? ARP_BLOCK_PAUSE : 0);
     show(D.chordName(D.pc(root), q) + (arp ? ' (rolled)' : ''),
       names(pitches) + '  ·  offsets ' + D.CHORDS[q].intervals.join(', '));
@@ -58,17 +61,12 @@
       names(pair) + '  ·  ' + iv.song);
   }
 
-  $('noteBtn').addEventListener('click', playNote);
-  $('chordBtn').addEventListener('click', playChord);
-  $('intervalBtn').addEventListener('click', playInterval);
-  $('stopBtn').addEventListener('click', function () { PianoAudio.silenceAll(); });
+  $('devNote').addEventListener('click', playNote);
+  $('devChord').addEventListener('click', playChord);
+  $('devInterval').addEventListener('click', playInterval);
+  $('devStop').addEventListener('click', function () { PianoAudio.silenceAll(); });
 
-  PianoAudio.onReady(function (label, kind) {
-    ['noteBtn', 'chordBtn', 'intervalBtn', 'stopBtn'].forEach(function (id) { $(id).disabled = false; });
-    $('hint').textContent = 'tap to listen';
-    var src = $('source');
-    src.textContent = label;
-    src.className = kind === 'samples' ? 'samples' : 'synth';
+  PianoAudio.onReady(function () {
+    ['devNote', 'devChord', 'devInterval', 'devStop'].forEach(function (id) { $(id).disabled = false; });
   });
-  PianoAudio.init();
 })();

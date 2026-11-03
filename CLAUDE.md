@@ -61,18 +61,18 @@ Scripts load in this order. Each one may use the globals defined above it.
 
 | File | Global | Purpose | Status |
 | --- | --- | --- | --- |
-| `index.html` | | Markup and script tags | Step 1: sound-check page only |
-| `css/styles.css` | | Theme tokens and all styles | Step 1 |
+| `index.html` | | Markup and script tags: the Notes match, plus a collapsed "Dev" section | Step 2 |
+| `css/styles.css` | | Theme tokens and all styles | Step 1, extended in step 2 |
 | Tone.js (cdnjs) | `Tone` | Audio library | |
 | `js/data.js` | `MusicData` | Notes, chord qualities, intervals and song references, presets, registers, MIDI and pitch-class helpers | Step 1 |
 | `js/audio.js` | `PianoAudio` | Sample loading, fallback synth, `playPitches`, `silenceAll` | Step 1 |
-| `js/soundcheck.js` | | Temporary step-1 test buttons. Delete once the real UI exists | Step 1 |
-| `js/storage.js` | `Store` | Settings and history load/save, validation, migration, export/import | Planned |
+| `js/storage.js` | `Store` | Settings and history load/save, validation, migration, caps. Export/import still to come | Step 2 |
 | `js/keyboard.js` | `Keyboard` | Shared `renderKeyboard` for the practice board and Learn | Planned |
-| `js/game.js` | `Game` | Round generation, scoring, health, timer, match flow | Planned |
+| `js/game.js` | `Game` | Match logic: round generation, scoring, health, replay cost, history logging. No DOM, no audio. Notes mode with button answers only so far; timer, chords and intervals still to come | Step 2 |
 | `js/learn.js` | `Learn` | Learn tab | Planned |
 | `js/stats.js` | `Stats` | Stats tab | Planned |
-| `js/app.js` | | Tabs, navigation, wiring all listeners once | Planned |
+| `js/soundcheck.js` | | Temporary Dev-section test buttons (random note, chord, interval). Delete once the real UI exists | Step 1 |
+| `js/app.js` | | Draws the match, wires every listener once, connects `Game` to `PianoAudio`. Tabs and navigation still to come | Step 2 |
 
 ## Module notes
 
@@ -82,6 +82,10 @@ Scripts load in this order. Each one may use the globals defined above it.
 
 - Samples are loaded with `Tone.ToneAudioBuffers` and played as `Tone.ToneBufferSource` voices tracked in our own list. This replaces `Tone.Sampler`, whose `triggerAttackRelease` stops tracking a note as soon as it is scheduled, so `releaseAll()` could never stop it. Sound settings are unchanged: 20 samples (C, D#, F#, A, octaves 3–7), nearest-sample pitch shifting, 0.06s release, −8 dB.
 - The sample and synth paths share the mute → stop voices → wait → unmute sequence.
+
+**`Store`** (`js/storage.js`): `loadSettings()` returns a complete, validated settings object (defaults for anything missing or invalid, old `range` migrated to `registers`, `intervals` accepted for `mode` and `learnMode`). `saveSettings(s)` re-validates and writes it. The whole settings schema lives here, even fields no screen uses yet, so saving from one screen never drops another screen's values. `loadHistory()`, `history()`, `pushAnswer(kind, target, guess)`, `pushPlay(correct, plays, mode)`, `pushMatch(m)` and `saveHistory()` handle the log. The `push*` calls apply the caps; call `saveHistory()` once after a batch. Saves do nothing until the matching load has run, so defaults can never overwrite stored data.
+
+**`Game`** (`js/game.js`): `createMatch({ difficulty, noteSel, registers })` returns `{ state, nextQuestion, listen, answer, summary }`. Settings are read once, so changing one means starting a new match. `listen()` counts a play and charges the replay cost; `answer(pc)` grades, scores, logs to `Store` and ends the match at 24 questions or zero health. The pure rules (`notePenalty`, `correctPoints`, `missSuffix`, `pickQuestion`) are exported so they can be checked on their own. The question counter shows `answered + 1`, as the old app did.
 
 ## Working rules
 

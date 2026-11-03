@@ -8,34 +8,96 @@
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-  <main class="card">
-    <h1>Sound check</h1>
-    <p class="subtitle">Step 1: music data and audio engine only.</p>
+  <main class="card" id="card">
 
-    <button class="btn" id="noteBtn" disabled>Random note</button>
-    <button class="btn" id="chordBtn" disabled>Random chord</button>
-    <button class="btn" id="intervalBtn" disabled>Random interval</button>
+    <header class="top">
+      <h1>Pitch Trainer</h1>
+      <!-- Temporary: becomes part of the setup screen in a later step. -->
+      <div class="seg" id="diffSeg" role="group" aria-label="Difficulty">
+        <button type="button" data-diff="easy">Easy</button>
+        <button type="button" data-diff="medium">Medium</button>
+        <button type="button" data-diff="hard">Hard</button>
+      </div>
+    </header>
+    <p class="subtitle">Name the note you hear.</p>
 
-    <label class="toggle">
-      <input type="checkbox" id="arpToggle">
-      Roll chords (arpeggio, then strike together)
-    </label>
+    <!-- Score strip -->
+    <section class="score" aria-label="Score">
+      <div class="stat">
+        <span class="num" id="points">0</span>
+        <span class="lbl">points</span>
+        <span class="delta" id="delta" aria-hidden="true"></span>
+      </div>
+      <div class="stat">
+        <span class="num"><span id="qNum">1</span><span class="of">/<span id="qTotal">24</span></span></span>
+        <span class="lbl">note</span>
+      </div>
+      <div class="stat">
+        <span class="num" id="streak">0</span>
+        <span class="lbl">streak</span>
+      </div>
+      <div class="stat">
+        <span class="num" id="hits">0</span>
+        <span class="lbl">hits</span>
+      </div>
+    </section>
 
-    <div class="readout" id="readout" aria-live="polite">
-      <span class="detail">Nothing played yet.</span>
+    <div class="health hidden" id="health">
+      <div class="health-row"><span>Health</span><span id="healthVal">0</span></div>
+      <div class="health-track"><div class="health-fill" id="healthFill"></div></div>
     </div>
 
-    <button class="btn secondary" id="stopBtn" disabled>Stop sound</button>
+    <!-- Question -->
+    <div id="game">
+      <button type="button" class="play" id="playBtn" disabled>
+        <span class="play-icon" aria-hidden="true">&#9654;</span> Play
+      </button>
+      <p class="hint" id="hint">loading piano samples…</p>
+      <div class="feedback" id="feedback" aria-live="polite"></div>
+      <div class="note-grid" id="answers"></div>
+    </div>
 
-    <p class="hint" id="hint">loading piano samples…</p>
+    <!-- End-of-match summary: replaces the answers when the match ends -->
+    <section class="summary hidden" id="summary" aria-live="polite">
+      <h2 id="sumTitle">Match complete</h2>
+      <div class="sum-points" id="sumPoints">0</div>
+      <div class="sum-label">points</div>
+      <dl class="sum-stats" id="sumStats"></dl>
+      <div class="sum-breakdown" id="sumBreakdown"></div>
+      <button type="button" class="btn" id="newMatchBtn">New match</button>
+    </section>
 
-    <div class="footer">Sound source: <span id="source">loading…</span></div>
+    <!-- Temporary developer tools: the step-1 sound check -->
+    <details class="dev">
+      <summary>Dev: sound check</summary>
+      <div class="dev-body">
+        <button type="button" class="btn" id="devNote" disabled>Random note</button>
+        <button type="button" class="btn" id="devChord" disabled>Random chord</button>
+        <button type="button" class="btn" id="devInterval" disabled>Random interval</button>
+        <label class="toggle">
+          <input type="checkbox" id="devArp">
+          Roll chords (arpeggio, then strike together)
+        </label>
+        <div class="readout" id="devReadout" aria-live="polite">
+          <span class="detail">Nothing played yet.</span>
+        </div>
+        <button type="button" class="btn secondary" id="devStop" disabled>Stop sound</button>
+      </div>
+    </details>
+
+    <div class="footer">
+      <div>Sound source: <span id="source">loading…</span></div>
+      <div class="storage-note hidden" id="storageNote">Storage is blocked, so progress will not be saved.</div>
+    </div>
   </main>
 
   <!-- Plain scripts, no modules, so the page works from file://. Order matters. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
   <script src="js/data.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/game.js"></script>
   <script src="js/soundcheck.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

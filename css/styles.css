@@ -1,4 +1,5 @@
-/* Pitch Trainer — dark amber theme */
+/* Pitch Trainer — dark amber theme.
+ * Colours are tokens on :root. Components use var(--token), never raw hex. */
 
 :root {
   --bg: #14110f;
@@ -44,9 +45,21 @@ body {
 button,
 select,
 input,
-label {
+label,
+summary {
   touch-action: manipulation;
   font-family: inherit;
+}
+
+button:focus-visible,
+summary:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+.hidden {
+  display: none !important;
 }
 
 .card {
@@ -55,21 +68,372 @@ label {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 22px 20px 18px;
+  padding: 20px 20px 16px;
 }
 
-.card h1 {
-  margin: 0 0 4px;
+/* ---------- header ---------- */
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.top h1 {
+  margin: 0;
   font-size: 22px;
   font-weight: 650;
   letter-spacing: 0.01em;
 }
 
 .subtitle {
-  margin: 0 0 18px;
+  margin: 2px 0 16px;
   color: var(--text-dim);
   font-size: 13px;
 }
+
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.seg button {
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.seg button + button {
+  border-left: 1px solid var(--line);
+}
+
+.seg button.active {
+  background: var(--amber-dim);
+  color: var(--text);
+}
+
+/* ---------- score strip ---------- */
+
+.score {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.stat {
+  position: relative;
+  padding: 8px 6px 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: center;
+  min-width: 0;
+}
+
+.stat .num {
+  display: block;
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat .num .of {
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.stat .lbl {
+  display: block;
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* The +gain / -cost flash sits on the points cell and fades out. */
+.delta {
+  position: absolute;
+  top: -9px;
+  right: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.delta.plus {
+  color: var(--good);
+}
+
+.delta.minus {
+  color: var(--bad);
+}
+
+.delta.show {
+  animation: delta-flash 1.5s ease-out forwards;
+}
+
+@keyframes delta-flash {
+  0%   { opacity: 0; transform: translateY(4px); }
+  12%  { opacity: 1; transform: translateY(0); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---------- health bar (Medium and Hard) ---------- */
+
+.health {
+  margin: 0 0 14px;
+}
+
+.health-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-dim);
+  font-size: 12px;
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.health-track {
+  height: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.health-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--good);
+  border-radius: 999px;
+  transition: width 0.25s ease, background 0.25s ease;
+}
+
+.health-fill.warn {
+  background: var(--amber);
+}
+
+.health-fill.danger {
+  background: var(--bad);
+}
+
+/* ---------- question ---------- */
+
+.play {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--amber);
+  color: var(--bg);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.12s ease, transform 0.08s ease;
+}
+
+.play:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.play:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.play:disabled {
+  background: var(--amber-dim);
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.play-icon {
+  font-size: 14px;
+  margin-right: 4px;
+}
+
+.hint {
+  margin: 8px 0 0;
+  min-height: 1.4em;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: center;
+}
+
+.feedback {
+  min-height: 1.6em;
+  margin: 6px 0 12px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.feedback.good {
+  color: var(--good);
+}
+
+.feedback.bad {
+  color: var(--bad);
+}
+
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.ans-btn {
+  padding: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.ans-btn:hover:not(:disabled) {
+  border-color: var(--amber-dim);
+}
+
+.ans-btn:active:not(:disabled) {
+  background: color-mix(in srgb, var(--amber) 14%, var(--bg));
+}
+
+.ans-btn:disabled {
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.ans-btn.correct {
+  border-color: var(--good);
+  background: color-mix(in srgb, var(--good) 18%, var(--bg));
+  color: var(--good);
+}
+
+.ans-btn.incorrect {
+  border-color: var(--bad);
+  background: color-mix(in srgb, var(--bad) 18%, var(--bg));
+  color: var(--bad);
+}
+
+/* ---------- end-of-match summary ---------- */
+
+.summary {
+  text-align: center;
+}
+
+.summary h2 {
+  margin: 4px 0 6px;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.sum-points {
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--amber);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sum-label {
+  color: var(--text-dim);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+}
+
+.sum-stats {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.sum-stats dt {
+  color: var(--text-dim);
+}
+
+.sum-stats dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.sum-breakdown {
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.break-label {
+  color: var(--text-dim);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.conf-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.conf-row b {
+  color: var(--amber);
+  font-weight: 650;
+}
+
+.conf-row .cnt {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.more {
+  padding-top: 6px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.clean {
+  padding: 10px 12px;
+  border: 1px solid var(--good);
+  border-radius: 10px;
+  color: var(--good);
+  text-align: center;
+  font-size: 14px;
+}
+
+/* ---------- shared buttons ---------- */
 
 .btn {
   display: block;
@@ -91,7 +455,7 @@ label {
 }
 
 .btn:active:not(:disabled) {
-  background: rgba(232, 161, 58, 0.12);
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
 }
 
 .btn:disabled {
@@ -105,6 +469,25 @@ label {
   border-color: var(--line);
   font-size: 14px;
   padding: 10px 16px;
+}
+
+/* ---------- dev section (temporary) ---------- */
+
+.dev {
+  margin-top: 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.dev summary {
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.dev-body {
+  padding-top: 10px;
 }
 
 .toggle {
@@ -125,7 +508,7 @@ label {
 
 .readout {
   min-height: 3.2em;
-  margin: 8px 0 6px;
+  margin: 8px 0 10px;
   padding: 10px 12px;
   border-radius: 10px;
   background: var(--bg);
@@ -142,15 +525,10 @@ label {
   color: var(--text-dim);
 }
 
-.hint {
-  color: var(--text-dim);
-  font-size: 13px;
-  text-align: center;
-  margin: 10px 0 0;
-}
+/* ---------- footer ---------- */
 
 .footer {
-  margin-top: 16px;
+  margin-top: 14px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
   color: var(--text-dim);
@@ -163,4 +541,22 @@ label {
 
 .footer .samples {
   color: var(--good);
+}
+
+.storage-note {
+  margin-top: 4px;
+  color: var(--bad);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .delta.show {
+    animation: none;
+    opacity: 1;
+  }
+
+  .health-fill,
+  .play,
+  .ans-btn {
+    transition: none;
+  }
 }
