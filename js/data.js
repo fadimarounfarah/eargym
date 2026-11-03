@@ -60,6 +60,9 @@ var MusicData = (function () {
     { semi: 12, label: 'P8', name: 'octave',      song: 'Somewhere Over the Rainbow' }
   ];
 
+  // Widest interval (the octave): how far above a root an interval reaches.
+  var INTERVAL_REACH = INTERVALS[INTERVALS.length - 1].semi;
+
   var INTERVAL_PRESETS = {
     wide:   [4, 5, 7, 12],
     thirds: [3, 4],
@@ -161,6 +164,7 @@ var MusicData = (function () {
     DEFAULT_QUALITIES: DEFAULT_QUALITIES,
     CHORD_REACH: CHORD_REACH,
     INTERVALS: INTERVALS,
+    INTERVAL_REACH: INTERVAL_REACH,
     INTERVAL_PRESETS: INTERVAL_PRESETS,
     DEFAULT_INTERVALS: DEFAULT_INTERVALS,
     REGISTER_LOW: REGISTER_LOW,

@@ -22,6 +22,7 @@ var Keyboard = (function () {
    *   extra    semitones drawn above the playable range as unplayable "ghost"
    *            keys, so a high chord still has somewhere to show its top notes
    *   labels   'letters' (every white key), 'octaves' (C keys as C4) or 'none'
+   *   minKeyPx narrowest a white key may get before the board scrolls (default 28)
    *   isDead   function (midi) -> true for keys that can never be the answer */
   function render(container, options) {
     var low = options.low;
@@ -40,7 +41,7 @@ var Keyboard = (function () {
 
     var inner = document.createElement('div');
     inner.className = 'kb-inner';
-    inner.style.minWidth = whites.length * MIN_WHITE_PX + 'px';
+    inner.style.minWidth = whites.length * (options.minKeyPx || MIN_WHITE_PX) + 'px';
 
     function makeKey(midi, isWhite) {
       var ghost = midi > playableTop;

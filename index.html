@@ -13,10 +13,10 @@
     <h1 id="title">Ear Trainer</h1>
     <p class="subtitle" id="subtitle">Train a skill.</p>
 
-    <!-- Learn and Stats are not built yet. -->
-    <nav class="tabs" aria-label="Sections">
-      <button type="button" class="tab active" aria-current="page">Practice</button>
-      <button type="button" class="tab" disabled><span>Learn</span><small>coming soon</small></button>
+    <!-- Stats is not built yet. -->
+    <nav class="tabs" id="tabs" aria-label="Sections">
+      <button type="button" class="tab active" data-tab="practice">Practice</button>
+      <button type="button" class="tab" data-tab="learn">Learn</button>
       <button type="button" class="tab" disabled><span>Stats</span><small>coming soon</small></button>
     </nav>
 
@@ -100,6 +100,14 @@
           <button type="button" class="mini" data-ipreset="all">All 12</button>
         </div>
       </div>
+
+      <button type="button" class="refresher" id="goLearn">
+        <span class="ref-text">
+          <b>Need a refresher?</b>
+          <i>Learn how each one sounds first</i>
+        </span>
+        <span class="ref-arrow" aria-hidden="true">&#8250;</span>
+      </button>
 
       <!-- registers, for every exercise -->
       <div class="field">
@@ -251,6 +259,92 @@
       </section>
     </section>
 
+    <!-- ============ Learn ============ -->
+    <section id="learnView" class="hidden" aria-label="Learn">
+      <div class="seg" id="learnModeSeg" role="group" aria-label="Explore">
+        <button type="button" data-lmode="notes">Notes</button>
+        <button type="button" data-lmode="intervals">Intervals</button>
+        <button type="button" data-lmode="chords">Chords</button>
+      </div>
+
+      <div class="display" aria-live="polite">
+        <div class="disp-name" id="dispName">&mdash;</div>
+        <div class="disp-spell" id="dispSpell">tap a key or a note to hear it</div>
+      </div>
+
+      <!-- Notes: anchor trainer -->
+      <div id="learnNotes">
+        <div class="learn-controls">
+          <button type="button" class="chip on" id="anchorToggle" aria-pressed="true">Anchor on</button>
+          <select id="anchorSel" class="select" aria-label="Anchor note"></select>
+        </div>
+        <p class="field-help">Each note plays after the anchor, so you hear it as a distance from one fixed reference. Switch the anchor off to test yourself cold.</p>
+        <div class="label-row">
+          <span class="field-label">Notes</span>
+          <div class="seg" id="learnOctSeg" role="group" aria-label="Register of the note buttons">
+            <button type="button" data-oct="0">C3</button>
+            <button type="button" data-oct="1">C4</button>
+            <button type="button" data-oct="2">C5</button>
+          </div>
+        </div>
+        <div class="root-grid" id="learnNoteBtns"></div>
+      </div>
+
+      <!-- Intervals: compare two -->
+      <div id="learnIntervals" class="hidden">
+        <div class="field-label">Compare</div>
+        <div class="compare">
+          <select id="ivlA" class="select" aria-label="Interval A"></select>
+          <span class="vs">vs</span>
+          <select id="ivlB" class="select" aria-label="Interval B"></select>
+        </div>
+        <div class="cmp-buttons">
+          <button type="button" class="chip" id="ivlPlayA">Play A</button>
+          <button type="button" class="chip" id="ivlFlip">Flip A / B</button>
+          <button type="button" class="chip" id="ivlPlayB">Play B</button>
+        </div>
+        <div class="learn-controls">
+          <div class="seg" id="ivlTime" role="group" aria-label="Melodic or harmonic">
+            <button type="button" data-ivltime="melodic">One after another</button>
+            <button type="button" data-ivltime="harmonic">Together</button>
+          </div>
+          <div class="seg" id="ivlDir" role="group" aria-label="Direction">
+            <button type="button" data-ivldir="asc">Ascending</button>
+            <button type="button" data-ivldir="desc">Descending</button>
+          </div>
+        </div>
+        <p class="field-help">Same starting note both times, so only the distance changes. Tap any key to move the root.</p>
+      </div>
+
+      <!-- Chords: compare two -->
+      <div id="learnChords" class="hidden">
+        <div class="field-label">Root</div>
+        <div class="root-grid" id="learnRoots"></div>
+        <div class="field-label learn-gap">Compare</div>
+        <div class="compare">
+          <select id="chordA" class="select" aria-label="Chord A"></select>
+          <span class="vs">vs</span>
+          <select id="chordB" class="select" aria-label="Chord B"></select>
+        </div>
+        <div class="cmp-buttons">
+          <button type="button" class="chip" id="chordPlayA">Play A</button>
+          <button type="button" class="chip" id="chordFlip">Flip A / B</button>
+          <button type="button" class="chip" id="chordPlayB">Play B</button>
+        </div>
+        <div class="learn-controls">
+          <div class="seg" id="chordPlay" role="group" aria-label="Block or arpeggio">
+            <button type="button" data-chordplay="block">Block</button>
+            <button type="button" data-chordplay="arp">Arpeggio</button>
+          </div>
+        </div>
+        <p class="field-help">The root stays fixed, so chord type is the only thing changing. That difference is what you are learning to hear.</p>
+      </div>
+
+      <div class="piano-wrap"><div id="learnPiano"></div></div>
+      <button type="button" class="btn primary" id="practiceThis">Practice this</button>
+      <p class="field-help" id="practiceNote"></p>
+    </section>
+
     <!-- Temporary developer tools: the step-1 sound check -->
     <details class="dev">
       <summary>Dev: sound check</summary>
@@ -283,6 +377,7 @@
   <script src="js/keyboard.js"></script>
   <script src="js/game.js"></script>
   <script src="js/setup.js"></script>
+  <script src="js/learn.js"></script>
   <script src="js/soundcheck.js"></script>
   <script src="js/app.js"></script>
 </body>

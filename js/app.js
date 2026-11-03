@@ -1,12 +1,12 @@
-/* The page: navigation between the menu, the setup screen and the match,
- * the match itself (all three modes, buttons or piano), the question timer,
+/* The page: navigation between the tabs and, inside Practice, the menu, the
+ * setup screen and the match, the match itself (all three modes, buttons or piano), the question timer,
  * and the progress cards on the menu.
  *
  * Every listener is attached once, at the bottom of this file or in
  * Setup.init(). Answer buttons and piano keys are handled by delegation on
  * their containers, so redrawing them can never stack handlers.
  *
- * Depends on: MusicData, PianoAudio, Store, Keyboard, Game, Setup.
+ * Depends on: MusicData, PianoAudio, Store, Keyboard, Game, Setup, Learn.
  */
 (function () {
   'use strict';
@@ -16,8 +16,9 @@
 
   var els = {
     card: $('card'), title: $('title'), subtitle: $('subtitle'),
+    tabs: $('tabs'),
     menuView: $('menuView'), menuList: $('menuList'),
-    setupView: $('setupView'), gameView: $('gameView'),
+    setupView: $('setupView'), gameView: $('gameView'), learnView: $('learnView'),
     gameBack: $('gameBack'), methodSeg: $('methodSeg'), methodNote: $('methodNote'),
     points: $('points'), qNum: $('qNum'), qTotal: $('qTotal'), qLabel: $('qLabel'),
     streak: $('streak'), hits: $('hits'), delta: $('delta'),
@@ -43,7 +44,7 @@
   Store.loadSettings();
   Store.loadHistory();
 
-  var view = 'menu';              // menu | setup | game
+  var view = 'menu';              // menu | setup | game (Practice tab), or learn (Learn tab)
   var match = null;
   var audioReady = false;
   var timer = null;               // pending "next question" or "show summary"
@@ -103,16 +104,20 @@
 
   /* ---------- navigation ---------- */
 
-  // The card widens only while a piano board is on screen.
+  // The card widens only while a piano board is on screen: the answer board in
+  // a match, or the Learn tab.
   function updateWidth() {
     var piano = view === 'game' && !!match && usingPiano() && els.summary.classList.contains('hidden');
-    els.card.classList.toggle('wide', piano);
+    els.card.classList.toggle('wide', piano || view === 'learn');
   }
 
   function updateHeading() {
     var mode = Store.settings().mode;
     var meta = Game.MODES[mode];
-    if (view === 'menu') {
+    if (view === 'learn') {
+      els.title.textContent = 'Learn ' + Game.MODES[Store.settings().learnMode].label;
+      els.subtitle.textContent = 'Explore freely \u2014 nothing is scored here.';
+    } else if (view === 'menu') {
       els.title.textContent = 'Ear Trainer';
       els.subtitle.textContent = 'Train a skill.';
     } else if (view === 'setup') {
@@ -126,13 +131,52 @@
   }
 
   function showView(name) {
+    // Leaving Learn silences it, so nothing keeps sounding behind another screen.
+    if (view === 'learn' && name !== 'learn') Learn.hide();
     view = name;
     els.menuView.classList.toggle('hidden', name !== 'menu');
     els.setupView.classList.toggle('hidden', name !== 'setup');
     els.gameView.classList.toggle('hidden', name !== 'game');
+    els.learnView.classList.toggle('hidden', name !== 'learn');
+    each(els.tabs.querySelectorAll('[data-tab]'), function (t) {
+      var on = t.getAttribute('data-tab') === (name === 'learn' ? 'learn' : 'practice');
+      t.classList.toggle('active', on);
+      if (on) t.setAttribute('aria-current', 'page');
+      else t.removeAttribute('aria-current');
+    });
     if (name === 'menu') renderMenu();
+    if (name === 'learn') Learn.show();
     updateHeading();
     updateWidth();
+  }
+
+  // Practice and Learn. Leaving a match for another tab abandons it.
+  function onTab(e) {
+    var tab = e.target.closest ? e.target.closest('button[data-tab]') : null;
+    if (!tab || tab.disabled) return;
+    var name = tab.getAttribute('data-tab');
+    if (name === 'learn' && view !== 'learn') {
+      if (view === 'game') { stopMatchActivity(); match = null; }
+      showView('learn');
+    } else if (name === 'practice' && view === 'learn') {
+      showView('menu');
+    }
+  }
+
+  // The setup screen's "Refresher" link: Learn opens on the same sub-mode.
+  function openLearnFor() {
+    Store.change(function (s) { s.learnMode = s.mode; });
+    showView('learn');
+  }
+
+  // Learn's "Practice this": apply the change, then start a match straight
+  // away. If those settings cannot start a match, show the setup screen so the
+  // reason is visible and can be fixed.
+  function practiceFromLearn(patch) {
+    Store.change(patch);
+    Setup.sync();
+    if (Game.setupProblem(Store.settings())) { showView('setup'); return; }
+    startFromSetup();
   }
 
   // Stop anything tied to a running match. Used when leaving the game view.
@@ -595,6 +639,7 @@
 
   /* ---------- wiring (once) ---------- */
 
+  els.tabs.addEventListener('click', onTab);
   els.menuList.addEventListener('click', onMenuClick);
   els.gameBack.addEventListener('click', leaveGame);
   els.playBtn.addEventListener('click', onPlay);
@@ -606,7 +651,13 @@
 
   Setup.init({
     onStart: startFromSetup,
-    onBack: function () { showView('menu'); }
+    onBack: function () { showView('menu'); },
+    onLearn: openLearnFor
+  });
+
+  Learn.init({
+    onPractice: practiceFromLearn,
+    onModeChange: updateHeading
   });
 
   PianoAudio.onReady(function (label, kind) {

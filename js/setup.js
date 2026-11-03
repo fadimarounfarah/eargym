@@ -18,7 +18,7 @@ var Setup = (function () {
   function countOn(arr) { return arr.filter(Boolean).length; }
 
   var els = null;
-  var callbacks = { start: null, back: null };
+  var callbacks = { start: null, back: null, learn: null };
 
   // The chord guess target to restore when a pinned root is set back to
   // random. Kept for this visit only; a pinned root is saved as type-only.
@@ -199,6 +199,7 @@ var Setup = (function () {
 
     if (b === els.startBtn) { if (callbacks.start) callbacks.start(); return; }
     if (b === els.backBtn) { if (callbacks.back) callbacks.back(); return; }
+    if (b === els.learnBtn) { if (callbacks.learn) callbacks.learn(); return; }
 
     var st = Store.settings();
     var mode = st.mode;
@@ -258,12 +259,13 @@ var Setup = (function () {
 
   /* ---------- start ---------- */
 
-  /* Call once. `options`: { onStart, onBack }. */
+  /* Call once. `options`: { onStart, onBack, onLearn }. */
   function init(options) {
     callbacks.start = options.onStart;
     callbacks.back = options.onBack;
+    callbacks.learn = options.onLearn;
     els = {
-      view: $('setupView'), backBtn: $('setupBack'), startBtn: $('startBtn'),
+      view: $('setupView'), backBtn: $('setupBack'), startBtn: $('startBtn'), learnBtn: $('goLearn'),
       setupName: $('setupName'), setupIcon: $('setupIcon'), setupProblem: $('setupProblem'),
       noteChips: $('noteChips'), noteCount: $('noteCount'),
       qualChips: $('qualChips'), qualCount: $('qualCount'),
