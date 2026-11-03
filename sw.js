@@ -9,7 +9,7 @@
  */
 'use strict';
 
-var CACHE_VERSION = 'eargym-v1';
+var CACHE_VERSION = 'eargym-v2';
 
 var PRECACHE = [
   './',
@@ -25,7 +25,6 @@ var PRECACHE = [
   'js/setup.js',
   'js/learn.js',
   'js/stats.js',
-  'js/soundcheck.js',
   'js/app.js',
   'js/sw-register.js',
   'icons/icon-192.png',
