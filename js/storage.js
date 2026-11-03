@@ -17,7 +17,7 @@
  * The live settings object is held here: read it with settings(), change it
  * with change(fn). Every change is re-validated and saved.
  *
- * Depends on: MusicData (js/data.js).
+ * Depends on: Instruments (js/instruments.js), MusicData (js/data.js).
  */
 var Store = (function () {
   'use strict';
@@ -104,6 +104,8 @@ var Store = (function () {
       registers: D.DEFAULT_REGISTERS.slice(),
       chordRegisters: D.DEFAULT_REGISTERS.slice(),
 
+      instrument: Instruments.DEFAULT,   // no UI yet: always "piano" for now
+
       learnMode: 'notes',
       anchorOn: true,
       anchorMidi: 60,
@@ -153,6 +155,8 @@ var Store = (function () {
       s.registers = oneHot(D.REGISTER_COUNT, [0, 1, 2].filter(function (i) { return i < n; }));
     }
     s.chordRegisters = boolArray(saved.chordRegisters, D.REGISTER_COUNT, 1, s.chordRegisters);
+
+    s.instrument = Instruments.has(saved.instrument) ? saved.instrument : s.instrument;
 
     s.learnMode = oneOf(saved.learnMode, MODES, s.learnMode);
     s.anchorOn = saved.anchorOn !== false;

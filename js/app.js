@@ -466,7 +466,7 @@
     renderAnswerArea();
     if (!match) return;
     showNextQuestion();
-    setHint(audioReady ? 'tap to listen' : 'loading piano samples…');
+    setHint(audioReady ? 'tap to listen' : PianoAudio.loadingLabel());
   }
 
   function showNextQuestion() {
@@ -690,5 +690,5 @@
 
   syncStorageNote();
   showView('menu');
-  PianoAudio.init();
+  PianoAudio.init(Store.settings().instrument);
 })();

@@ -3,6 +3,8 @@
  * Everything is MIDI numbers (C4 = 60) and pitch classes (0-11, C = 0).
  * Sharps only. Loaded as a plain script: it defines one global, MusicData,
  * so later files can destructure what they need.
+ *
+ * Depends on: Instruments (js/instruments.js), for the playable range.
  */
 var MusicData = (function () {
   'use strict';
@@ -77,16 +79,20 @@ var MusicData = (function () {
     return null;
   }
 
-  // Three one-octave registers from C3: C3-B3, C4-B4, C5-B5.
-  var REGISTER_LOW = 48; // C3
-  var REGISTER_COUNT = 3;
+  // One-octave registers cut from the default instrument's playable range.
+  // For the piano that is three, from C3: C3-B3, C4-B4, C5-B5. Settings and
+  // history store registers as a [bool, bool, bool] selection, so the count
+  // must stay 3 (see "Instrument assumptions" in CLAUDE.md).
+  var RANGE = Instruments.get(Instruments.DEFAULT).range;
+  var REGISTER_LOW = RANGE.low;                                  // C3
+  var REGISTER_COUNT = Math.floor((RANGE.high - RANGE.low + 1) / 12);   // 3
   var REGISTERS = [];
   for (var r = 0; r < REGISTER_COUNT; r++) {
     REGISTERS.push({
       index: r,
       low: REGISTER_LOW + r * 12,
       high: REGISTER_LOW + r * 12 + 11,
-      label: 'C' + (3 + r) + '–B' + (3 + r)
+      label: midiToName(REGISTER_LOW + r * 12) + '–' + midiToName(REGISTER_LOW + r * 12 + 11)
     });
   }
   var DEFAULT_REGISTERS = [true, false, false];

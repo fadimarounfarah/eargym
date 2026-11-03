@@ -1,8 +1,10 @@
 /* Audio engine.
  *
- * Plays Salamander Grand Piano samples (vendor/salamander/) through Tone.js. If Tone.js is missing,
- * a sample fails, or loading takes longer than 15 s, it switches to a built-in
- * additive piano synth instead.
+ * Plays the selected instrument's samples through Tone.js. The instrument (its
+ * samples, range, release, volume and fallback synth) comes from
+ * js/instruments.js; only "piano", the Salamander Grand Piano, exists so far.
+ * If Tone.js is missing, a sample fails, or loading takes longer than 15 s, it
+ * switches to the instrument's built-in additive synth instead.
  *
  * The whole app makes sound through one call: PianoAudio.playPitches().
  *
@@ -12,7 +14,10 @@
  * start would carry on into the next play. Keeping our own voice list lets a
  * new play stop all of them.
  *
- * Depends on: MusicData (js/data.js), and Tone (CDN) when it loaded.
+ * The global keeps the name PianoAudio so no caller had to change.
+ *
+ * Depends on: Instruments (js/instruments.js), MusicData (js/data.js), and
+ * Tone (vendor/tone/Tone.js) when it loaded.
  */
 var PianoAudio = (function () {
   'use strict';
@@ -21,57 +26,32 @@ var PianoAudio = (function () {
 
   /* ---------- constants ---------- */
 
-  // The samples ship with the app (vendor/salamander/), so they work offline
-  // once the service worker has cached them. Browsers refuse to fetch local
-  // files from a page opened from disk (file://), so there the same files are
-  // fetched from the Tone.js audio repo instead, which needs internet. If both
-  // fail, the 15 s timeout or the load error switches to the synth.
-  var LOCAL_SAMPLE_URL = 'vendor/salamander/';
-  var REMOTE_SAMPLE_URL = 'https://tonejs.github.io/audio/salamander/';
-  var SAMPLE_BASE_URL = window.location.protocol === 'file:' ? REMOTE_SAMPLE_URL : LOCAL_SAMPLE_URL;
+  // An instrument's samples ship with the app (instrument.samples.local), so
+  // they work offline once the service worker has cached them. Browsers refuse
+  // to fetch local files from a page opened from disk (file://), so there the
+  // same files are fetched from instrument.samples.remote instead, which needs
+  // internet. If both fail, the 15 s timeout or the load error switches to the
+  // instrument's synth.
+  var FROM_DISK = window.location.protocol === 'file:';
   var LOAD_TIMEOUT_MS = 15000;
-  var SAMPLE_VOLUME_DB = -8;
 
-  // Click-free playback. These numbers fix a real pop: do not change them.
+  // Click-free playback, shared by every instrument. These numbers fix a real
+  // pop: do not change them. (Each instrument sets its own voice release.)
   var TIMING = {
     muteRamp: 0.015,     // s, output gain down to 0 before a new play
     settleMs: 95,        // ms, stay muted so released notes finish fading
     unmuteRamp: 0.008,   // s, output gain back up to 1
-    release: 0.06,       // s, sample voice release
     noteDur: 2.6,        // s, a struck note (block chord, single note)
     rolledDur: 1.9,      // s, a rolled note that is followed by a block strike
     silenceRamp: 0.025   // s, fade used by silenceAll()
   };
 
-  // Salamander has C, D#, F# and A in octaves 3 to 7: 20 files.
-  var SAMPLE_FILES = {}; // midi -> filename
-  (function () {
-    var names = { 0: 'C', 3: 'Ds', 6: 'Fs', 9: 'A' };
-    for (var oct = 3; oct <= 7; oct++) {
-      Object.keys(names).forEach(function (p) {
-        SAMPLE_FILES[D.midiFrom(+p, oct)] = names[p] + oct + '.mp3';
-      });
-    }
-  })();
-  var SAMPLE_MIDIS = Object.keys(SAMPLE_FILES).map(Number).sort(function (a, b) { return a - b; });
-
-  // Additive synth partials: harmonic multiple, gain, decay time (s).
-  var PARTIALS = [
-    { mult: 1, gain: 1.00, decay: 3.2 },
-    { mult: 2, gain: 0.52, decay: 2.4 },
-    { mult: 3, gain: 0.30, decay: 1.8 },
-    { mult: 4, gain: 0.18, decay: 1.4 },
-    { mult: 5, gain: 0.10, decay: 1.0 },
-    { mult: 6, gain: 0.06, decay: 0.8 },
-    { mult: 8, gain: 0.03, decay: 0.6 }
-  ];
-  var SYNTH_LEVEL = 0.22;
-  var SYNTH_STOP_RAMP = 0.025;
-
   /* ---------- state ---------- */
 
+  var inst = Instruments.get(Instruments.DEFAULT);   // set by init()
+  var sampleMidis = [];   // inst's sample notes, ascending
   var engine = null;      // null while loading, then 'samples' or 'synth'
-  var sourceLabel = 'loading piano samples…';
+  var sourceLabel = inst.loadingLabel;
   var readyCallbacks = [];
   var playToken = 0;
   var voices = [];        // { stop(time) } for every sounding or scheduled note
@@ -88,8 +68,13 @@ var PianoAudio = (function () {
 
   /* ---------- loading ---------- */
 
-  function init() {
+  // Loads one instrument (an id from Instruments; unknown ids get the
+  // default). Call once: switching instruments later is not built yet.
+  function init(instrumentId) {
     if (engine || buffers) return;
+    inst = Instruments.get(instrumentId);
+    sourceLabel = inst.loadingLabel;
+    sampleMidis = Object.keys(inst.samples.files).map(Number).sort(function (a, b) { return a - b; });
     if (typeof Tone === 'undefined') { useSynth('Tone.js unavailable'); return; }
 
     var settled = false;
@@ -108,8 +93,8 @@ var PianoAudio = (function () {
 
     try {
       buffers = new Tone.ToneAudioBuffers({
-        urls: SAMPLE_FILES,
-        baseUrl: SAMPLE_BASE_URL,
+        urls: inst.samples.files,
+        baseUrl: FROM_DISK ? inst.samples.remote : inst.samples.local,
         onload: function () {
           if (settled) return;
           settled = true;
@@ -124,11 +109,11 @@ var PianoAudio = (function () {
   }
 
   function useSamples() {
-    sampleVolume = new Tone.Volume(SAMPLE_VOLUME_DB);
+    sampleVolume = new Tone.Volume(inst.volumeDb);
     sampleOut = new Tone.Gain(1);
     sampleVolume.connect(sampleOut);
     sampleOut.toDestination();
-    setReady('samples', 'Salamander Grand Piano samples');
+    setReady('samples', inst.sourceLabel);
   }
 
   function useSynth(reason) {
@@ -141,12 +126,12 @@ var PianoAudio = (function () {
     // One shared low-pass replaces a per-voice filter: same sound, fewer nodes.
     synthIn = ctx.createBiquadFilter();
     synthIn.type = 'lowpass';
-    synthIn.frequency.value = 6000;
+    synthIn.frequency.value = inst.synth.lowpass;
     synthOut = ctx.createGain();
     synthOut.gain.value = 1;
     synthIn.connect(synthOut);
     synthOut.connect(ctx.destination);
-    setReady('synth', 'built-in piano synth (' + reason + ')');
+    setReady('synth', inst.synth.label + ' (' + reason + ')');
   }
 
   function setReady(kind, label) {
@@ -207,9 +192,9 @@ var PianoAudio = (function () {
   /* ---------- sample voices ---------- */
 
   function nearestSample(midi) {
-    var best = SAMPLE_MIDIS[0];
-    for (var i = 1; i < SAMPLE_MIDIS.length; i++) {
-      if (Math.abs(SAMPLE_MIDIS[i] - midi) < Math.abs(best - midi)) best = SAMPLE_MIDIS[i];
+    var best = sampleMidis[0];
+    for (var i = 1; i < sampleMidis.length; i++) {
+      if (Math.abs(sampleMidis[i] - midi) < Math.abs(best - midi)) best = sampleMidis[i];
     }
     return best;
   }
@@ -220,7 +205,7 @@ var PianoAudio = (function () {
       url: buffers.get(base),
       playbackRate: Math.pow(2, (midi - base) / 12),
       fadeIn: 0,
-      fadeOut: TIMING.release,
+      fadeOut: inst.release,
       curve: 'exponential'
     }).connect(sampleVolume);
     var voice = { stop: function (t) { src.stop(t); } };
@@ -233,35 +218,37 @@ var PianoAudio = (function () {
   /* ---------- synth voices ---------- */
 
   function synthVoice(midi, when, dur, level) {
+    var sy = inst.synth;
     var freq = D.midiToFreq(midi);
     var end = when + dur;
 
     var master = ctx.createGain();
     master.gain.setValueAtTime(level, when);
     master.gain.setValueAtTime(level, end);
-    master.gain.linearRampToValueAtTime(0, end + SYNTH_STOP_RAMP);
+    master.gain.linearRampToValueAtTime(0, end + sy.stopRamp);
     master.connect(synthIn);
 
     var nodes = [];
-    PARTIALS.forEach(function (p, i) {
+    sy.partials.forEach(function (p, i) {
       var osc = ctx.createOscillator();
       var g = ctx.createGain();
       osc.type = 'sine';
       // Slight inharmonic stretch, like a real string, plus tiny random detune.
-      osc.frequency.value = freq * p.mult * (1 + 0.0004 * p.mult * p.mult);
-      osc.detune.value = (Math.random() - 0.5) * 4;
+      osc.frequency.value = freq * p.mult * (1 + sy.stretch * p.mult * p.mult);
+      osc.detune.value = (Math.random() - 0.5) * sy.detune;
       g.gain.setValueAtTime(0, when);
       g.gain.linearRampToValueAtTime(p.gain, when + 0.004 + i * 0.001);
       g.gain.exponentialRampToValueAtTime(0.0001, when + p.decay);
       osc.connect(g);
       g.connect(master);
       osc.start(when);
-      osc.stop(Math.min(when + p.decay + 0.1, end + SYNTH_STOP_RAMP + 0.01));
+      osc.stop(Math.min(when + p.decay + 0.1, end + sy.stopRamp + 0.01));
       nodes.push(osc);
     });
 
-    // Hammer: 30 ms of decaying noise, band-passed around the 3rd harmonic.
-    var len = Math.floor(ctx.sampleRate * 0.03);
+    // Attack noise (the piano's hammer): a short burst of decaying noise,
+    // band-passed around one harmonic.
+    var len = Math.floor(ctx.sampleRate * sy.noise.dur);
     var buf = ctx.createBuffer(1, len, ctx.sampleRate);
     var data = buf.getChannelData(0);
     for (var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
@@ -269,8 +256,8 @@ var PianoAudio = (function () {
     var nf = ctx.createBiquadFilter();
     var ng = ctx.createGain();
     nf.type = 'bandpass';
-    nf.frequency.value = freq * 3;
-    ng.gain.value = 0.12;
+    nf.frequency.value = freq * sy.noise.harmonic;
+    ng.gain.value = sy.noise.gain;
     noise.buffer = buf;
     noise.connect(nf);
     nf.connect(ng);
@@ -280,8 +267,8 @@ var PianoAudio = (function () {
 
     var voice = {
       stop: function (t) {
-        rampFromCurrent(master.gain, t, 0, SYNTH_STOP_RAMP);
-        nodes.forEach(function (n) { try { n.stop(t + SYNTH_STOP_RAMP + 0.01); } catch (e) { /* ok */ } });
+        rampFromCurrent(master.gain, t, 0, sy.stopRamp);
+        nodes.forEach(function (n) { try { n.stop(t + sy.stopRamp + 0.01); } catch (e) { /* ok */ } });
       }
     };
     nodes[0].onended = function () { forget(voice); master.disconnect(); };
@@ -325,8 +312,8 @@ var PianoAudio = (function () {
         g.setValueAtTime(0, start);
         g.linearRampToValueAtTime(1, start + TIMING.unmuteRamp);
 
-        var rollLevel = SYNTH_LEVEL / Math.sqrt(step ? 1 : n);
-        var blockLevel = SYNTH_LEVEL / Math.sqrt(n);
+        var rollLevel = inst.synth.level / Math.sqrt(step ? 1 : n);
+        var blockLevel = inst.synth.level / Math.sqrt(n);
         pitches.forEach(function (m, i) { startVoice(m, start + i * step, rollDur, rollLevel); });
         if (blockAt !== null) {
           pitches.forEach(function (m) { startVoice(m, start + blockAt, TIMING.noteDur, blockLevel); });
@@ -356,6 +343,8 @@ var PianoAudio = (function () {
     isReady: function () { return engine !== null; },
     engine: function () { return engine; },
     sourceLabel: function () { return sourceLabel; },
+    instrument: function () { return inst; },
+    loadingLabel: function () { return inst.loadingLabel; },
     playPitches: playPitches,
     silenceAll: silenceAll
   };

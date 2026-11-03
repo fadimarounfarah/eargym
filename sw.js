@@ -6,10 +6,18 @@
  *
  * All paths are relative to this file, so it works from any subfolder
  * (for example https://<user>.github.io/eargym/).
+ *
+ * The sample files are not listed here: they come from every instrument
+ * registered in js/instruments.js, so a new instrument's samples are
+ * precached as soon as it is registered there (still bump CACHE_VERSION).
  */
 'use strict';
 
-var CACHE_VERSION = 'eargym-v2';
+// Defines Instruments. The browser also re-checks imported scripts for
+// changes, so editing js/instruments.js updates the worker too.
+importScripts('js/instruments.js');
+
+var CACHE_VERSION = 'eargym-v3';
 
 var PRECACHE = [
   './',
@@ -17,6 +25,7 @@ var PRECACHE = [
   'manifest.webmanifest',
   'css/styles.css',
   'vendor/tone/Tone.js',
+  'js/instruments.js',
   'js/data.js',
   'js/audio.js',
   'js/storage.js',
@@ -33,10 +42,8 @@ var PRECACHE = [
   'icons/apple-touch-icon.png'
 ];
 
-// The 20 Salamander samples: C, D#, F# and A in octaves 3 to 7.
-['C', 'Ds', 'Fs', 'A'].forEach(function (n) {
-  for (var oct = 3; oct <= 7; oct++) PRECACHE.push('vendor/salamander/' + n + oct + '.mp3');
-});
+// Every instrument's vendored samples (for the piano: the 20 Salamander files).
+PRECACHE = PRECACHE.concat(Instruments.localSamplePaths());
 
 self.addEventListener('install', function (event) {
   event.waitUntil(
