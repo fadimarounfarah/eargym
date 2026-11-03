@@ -61,7 +61,7 @@ Scripts load in this order. Each one may use the globals defined above it.
 
 | File | Global | Purpose | Status |
 | --- | --- | --- | --- |
-| `index.html` | | Markup and script tags: tab bar, Practice menu, setup screen, match view, Learn view, Stats view, and the collapsed "Dev: sound check" section | Steps 4–6 |
+| `index.html` | | Markup and script tags: tab bar, Practice menu, setup screen, match view, Learn view, and Stats view | Steps 4–6 |
 | `css/styles.css` | | Theme tokens and all styles | Steps 1–6 |
 | Tone.js (cdnjs) | `Tone` | Audio library | |
 | `js/data.js` | `MusicData` | Notes, chord qualities, intervals and song references, presets, registers, MIDI and pitch-class helpers | Step 1 |
@@ -72,12 +72,11 @@ Scripts load in this order. Each one may use the globals defined above it.
 | `js/setup.js` | `Setup` | The "Set up your match" screen: chips, presets, registers, focus, reference pitch, time, difficulty. Draws once, listens once | Step 4 |
 | `js/learn.js` | `Learn` | The Learn tab: Notes (anchor trainer), Intervals and Chords comparators, "Practice this". Unscored, never writes history | Step 5 |
 | `js/stats.js` | `Stats` | The Stats tab ("Your Ear"): trend, listens, matches, per-note bars, confusions, matrix, interval and chord-type bars, and the export / import / reset controls. Read-only on the history except through `Store` | Step 6 |
-| `js/soundcheck.js` | | Temporary Dev-section test buttons (random note, chord, interval). Delete once the real UI exists | Step 1 |
 | `js/app.js` | | Navigation (Practice, Learn and Stats tabs; menu, setup, game), the menu progress cards, the match and answer area (buttons or piano), the input toggle and the question timer; wires every listener once | Steps 3–6 |
 
 ## Module notes
 
-**`MusicData`** (`js/data.js`): `NOTES`, `NATURALS`, `CHORDS` (keyed by quality, each `{ key, label, name, intervals }`), `QUALITY_KEYS`, `INTERVALS` (each `{ semi, label, name, song }`), the presets for each, `REGISTERS` (three octaves from C3 = MIDI 48), and helpers: `pc`, `octaveOf`, `midiToName`, `midiToFreq`, `nameToMidi`, `midiFrom`, `isBlack`, `pcDistance`, `registerOf`, `enabledRegisters`, `midiInRegister`, `chordPitches`, `chordName`, `intervalBySemi`, `randomItem`.
+**`MusicData`** (`js/data.js`): `NOTES`, `NATURALS`, `CHORDS` (keyed by quality, each `{ key, label, name, intervals }`), `QUALITY_KEYS`, `INTERVALS` (each `{ semi, label, name, song }`), the presets for each, `REGISTERS` (three octaves from C3 = MIDI 48), and helpers: `pc`, `octaveOf`, `midiToName`, `midiToFreq`, `nameToMidi`, `midiFrom`, `isBlack`, `pcDistance`, `registerOf`, `enabledRegisters`, `midiInRegister`, `chordPitches`, `chordName`, `intervalBySemi`.
 
 **`PianoAudio`** (`js/audio.js`): call `init()` once, and use `onReady(cb)` to enable the play button. `playPitches(pitches, gap, blockAfter)` is the only way to make sound. `silenceAll()` stops everything, including notes scheduled for later. Call it when switching tabs or leaving a match.
 

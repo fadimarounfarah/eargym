@@ -152,8 +152,6 @@ var MusicData = (function () {
     return pcToName(rootPc) + ' ' + CHORDS[qualityKey].name;
   }
 
-  function randomItem(list) { return list[Math.floor(Math.random() * list.length)]; }
-
   return {
     NOTES: NOTES,
     NATURALS: NATURALS,
@@ -187,7 +185,6 @@ var MusicData = (function () {
     enabledRegisters: enabledRegisters,
     midiInRegister: midiInRegister,
     chordPitches: chordPitches,
-    chordName: chordName,
-    randomItem: randomItem
+    chordName: chordName
   };
 })();
