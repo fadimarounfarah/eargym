@@ -232,7 +232,10 @@ var Setup = (function () {
         s.qualSel = D.QUALITY_KEYS.map(function (k) { return keys.indexOf(k) !== -1; });
       });
     } else if (b.hasAttribute('data-guess')) {
-      guessBeforePin = null;
+      // While a root is pinned only Type is enabled, and tapping it changes
+      // nothing, so it must not wipe the choice to restore on unpin. With a
+      // random root the player is choosing freely, so nothing is remembered.
+      if (st.chordRoot === 'random') guessBeforePin = null;
       Store.change(function (s) { s.guessTarget = b.getAttribute('data-guess'); });
     } else if (b.hasAttribute('data-play')) {
       Store.change(function (s) { s.chordPlay = b.getAttribute('data-play'); });

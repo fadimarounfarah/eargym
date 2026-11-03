@@ -391,6 +391,7 @@ var Stats = (function () {
   function render() {
     var h = Store.history();
     var empty = h.answers.length === 0;
+    els.paused.classList.toggle('hidden', !Store.historyPaused());
     els.empty.classList.toggle('hidden', !empty);
     els.body.classList.toggle('hidden', empty);
     if (empty) return;
@@ -453,6 +454,10 @@ var Stats = (function () {
         return;
       }
       var result = Store.mergeHistory(data);
+      if (!result.ok && result.error === 'paused') {
+        setMessage('Saving is paused because the stored history could not be read, so nothing was imported.', 'bad');
+        return;
+      }
       if (!result.ok) {
         setMessage('That file does not look like a Pitch Trainer history export (it needs an answers list and a matches list). Nothing was changed.', 'bad');
         return;
@@ -470,10 +475,11 @@ var Stats = (function () {
   }
 
   function resetHistory() {
-    Store.resetHistory();
+    var done = Store.resetHistory();
     showResetConfirm(false);
     render();
-    setMessage('History reset.', 'good');
+    if (done) setMessage('History reset.', 'good');
+    else setMessage('Saving is paused because the stored history could not be read, so nothing was reset.', 'bad');
   }
 
   /* ---------- events ---------- */
@@ -511,7 +517,7 @@ var Stats = (function () {
   // Call once: finds the elements and attaches every listener.
   function init() {
     els = {
-      view: $('statsView'), empty: $('statsEmpty'), body: $('statsBody'), scopeSeg: $('scopeSeg'),
+      view: $('statsView'), paused: $('statsPaused'), empty: $('statsEmpty'), body: $('statsBody'), scopeSeg: $('scopeSeg'),
       trendSeg: $('trendSeg'), trend: $('trend'), replayBox: $('replayBox'), matchList: $('matchList'),
       noteBars: $('noteBars'), confusionList: $('confusionList'),
       matrixWrap: $('matrixWrap'), matrix: $('matrix'),

@@ -43,6 +43,9 @@ var Store = (function () {
   var storageOK = true;
   var settingsLoaded = false;
   var historyLoaded = false;
+  // True when the stored history exists but could not be parsed. Saving history
+  // is then off for the whole session, so the damaged data stays recoverable.
+  var historyUnreadable = false;
   var history = emptyHistory();
 
   /* ---------- small validators ---------- */
@@ -224,7 +227,8 @@ var Store = (function () {
         }
       }
     } catch (e) {
-      if (!(e instanceof SyntaxError)) storageOK = false;
+      if (e instanceof SyntaxError) historyUnreadable = true;
+      else storageOK = false;
     }
     historyLoaded = true;
     return history;
@@ -303,11 +307,13 @@ var Store = (function () {
   // plays on ts. Then everything is sorted by time and every cap is applied
   // again, oldest first.
   //
-  // Returns { ok: false, error: 'shape' } if `data` is not a history export
-  // (it needs answers and matches lists), else
+  // Returns { ok: false, error: 'paused' } while saving is paused (the stored
+  // history could not be read), { ok: false, error: 'shape' } if `data` is not a
+  // history export (it needs answers and matches lists), else
   // { ok: true, matches, answers, plays, skipped } with the totals now held and
   // how many incoming entries were dropped as malformed.
   function mergeHistory(data) {
+    if (historyUnreadable) return { ok: false, error: 'paused' };
     if (!isObject(data) || !Array.isArray(data.answers) || !Array.isArray(data.matches)) {
       return { ok: false, error: 'shape' };
     }
@@ -345,16 +351,20 @@ var Store = (function () {
 
   // Empty the history. The arrays are emptied in place, so anything holding the
   // object from history() still sees the live, empty history.
+  // Does nothing and returns false while saving is paused, since a reset would
+  // overwrite the damaged data that is being kept.
   function resetHistory() {
+    if (historyUnreadable) return false;
     history.answers.length = 0;
     history.matches.length = 0;
     history.plays.length = 0;
     saveHistory();
+    return true;
   }
 
   // Call once after a batch of pushes. Does nothing before loadHistory().
   function saveHistory() {
-    if (!storageOK || !historyLoaded) return;
+    if (!storageOK || !historyLoaded || historyUnreadable) return;
     try {
       window.localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
     } catch (e) {
@@ -370,6 +380,8 @@ var Store = (function () {
     MAX_PLAYS: MAX_PLAYS,
 
     available: function () { return storageOK; },
+    // True when the saved history could not be read and saving it is paused.
+    historyPaused: function () { return historyUnreadable; },
     defaultSettings: defaultSettings,
     normalizeSettings: normalizeSettings,
     loadSettings: loadSettings,

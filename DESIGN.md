@@ -129,7 +129,7 @@ The score strip shows points, a delta flash (+gain or −cost), question number 
 
 ## Audio engine
 
-**Samples.** A `Tone.Sampler` loads 20 Salamander Grand Piano samples (C, D#, F# and A in each octave from 3 to 7) from `https://tonejs.github.io/audio/salamander/`, with a release of 0.06s and volume of −8 dB. Tone pitch-shifts between the sampled notes. The sampler routes through a `Tone.Gain` node that the app uses to mute and unmute cleanly. The play button stays disabled and the hint reads "loading piano samples…" until the samples load.
+**Samples.** A `Tone.ToneAudioBuffers` loads 20 Salamander Grand Piano samples (C, D#, F# and A in each octave from 3 to 7) from `https://tonejs.github.io/audio/salamander/`. Each note is played by its own `Tone.ToneBufferSource` voice, using the nearest sample and shifting its pitch to reach the note, with a release of 0.06s and a volume of −8 dB. The app keeps its own list of the voices that are sounding or scheduled, so a new play (or `silenceAll`) can stop every one of them, including notes not yet started. (`Tone.Sampler` was not used: its `triggerAttackRelease` stops tracking a note once it is scheduled, so `releaseAll()` could not stop it.) The voices route through a `Tone.Volume` node and then a `Tone.Gain` node that the app uses to mute and unmute cleanly. The play button stays disabled and the hint reads "loading piano samples…" until the samples load.
 
 **Fallback synth.** If Tone.js is missing, the samples error, or loading takes longer than 15 seconds, the app builds a Web Audio additive piano: 7 sine partials with individual gains and decay times, slight inharmonic stretch, tiny random detune, a 30ms filtered noise burst for the hammer, and a 6 kHz low-pass. The footer line shows which source is active ("Salamander Grand Piano samples" or "built-in piano synth (reason)").
 
@@ -196,7 +196,7 @@ Two smaller quirks, left as they are: a code comment lists a "random" chord play
 
 ## Notes for Claude Code
 
-The working app is `pitch-trainer_1.html`. Treat it as the source of truth and edit it rather than rewriting from this document. This doc describes behavior; the file holds the exact numbers and edge cases.
+The working app is `index.html` with the scripts and stylesheet it loads; `CLAUDE.md` has the file layout, what each script owns and the order they load in. Treat the code as the source of truth for exact numbers and edge cases. This doc describes behavior. The old single-file app is kept as `pitch-trainer-original.html` for reference only.
 
 **Preserve exactly:**
 

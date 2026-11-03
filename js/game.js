@@ -264,7 +264,7 @@ var Game = (function () {
       var iv = D.intervalBySemi(semi);
       return {
         key: key, low: low, semi: semi, descending: desc,
-        text: iv.label + ' (' + iv.name + ')' + (desc ? ' descending' : ''),
+        text: iv.label + ' — ' + iv.name + (desc ? ' descending' : ''),
         pitches: desc ? [low + semi, low] : [low, low + semi],
         gap: INTERVAL_GAP, blockAfter: 0
       };
@@ -499,7 +499,9 @@ var Game = (function () {
         correct: correct,
         penalty: notePenalty(d),
         base: BASE_POINTS,
-        message: correct ? 'Correct — ' + question.text : 'That was ' + question.text + missSuffix(d),
+        // No "off by" tag for intervals, as in the original: DESIGN.md gives
+        // none for them, and the capped distance is only a penalty size.
+        message: correct ? 'Correct — ' + question.text : 'That was ' + question.text,
         delay: DELAY_MS.interval,
         method: 'buttons',
         logs: [['ivl', question.semi, guessSemi]],

@@ -14,7 +14,8 @@ Pitch Trainer is a no-build ear-training web app. It drills three skills: naming
 - **No framework, no bundler, no build step.** Plain HTML, CSS and JS.
 - **Must open by double-clicking `index.html`** (a `file://` URL). That means **no ES modules** (`type="module"` fails on `file://`), no `fetch()` of local files, and no `import`/`export`. Use plain `<script>` tags in dependency order.
 - Each JS file is wrapped in an IIFE and defines **at most one global** (for example `MusicData`, `PianoAudio`). Later files read earlier globals. No other globals leak.
-- Tone.js **14.8.49** comes from cdnjs. The piano samples come from `https://tonejs.github.io/audio/salamander/`. The app needs internet on first load. There is no offline mode yet.
+- Tone.js **14.8.49** and the 20 Salamander piano samples are vendored in `vendor/` and loaded by relative path. No CDN. The app works offline once installed (see "Hosting and offline").
+- **All paths relative** (no leading `/`), so the app works from disk and from a GitHub Pages subfolder (`/eargym/`).
 - Built for phones: `touch-action: manipulation` on controls, tap highlight off, works at 360px wide.
 - `localStorage` only. Wrap every access in try/catch so the app still runs if storage is blocked.
 
@@ -61,9 +62,9 @@ Scripts load in this order. Each one may use the globals defined above it.
 
 | File | Global | Purpose | Status |
 | --- | --- | --- | --- |
-| `index.html` | | Markup and script tags: tab bar, Practice menu, setup screen, match view, Learn view, Stats view, and the collapsed "Dev: sound check" section | Steps 4–6 |
+| `index.html` | | Markup and script tags: tab bar, Practice menu, setup screen, match view, Learn view, and Stats view | Steps 4–6 |
 | `css/styles.css` | | Theme tokens and all styles | Steps 1–6 |
-| Tone.js (cdnjs) | `Tone` | Audio library | |
+| `vendor/tone/Tone.js` | `Tone` | Audio library, Tone.js 14.8.49 from the npm `tone` package (`build/Tone.js`), unmodified | Step 9 |
 | `js/data.js` | `MusicData` | Notes, chord qualities, intervals and song references, presets, registers, MIDI and pitch-class helpers | Step 1 |
 | `js/audio.js` | `PianoAudio` | Sample loading, fallback synth, `playPitches`, `silenceAll` | Step 1 |
 | `js/storage.js` | `Store` | Settings and history load/save, validation, migration, caps, history export / merge-import / reset | Steps 2–6 |
@@ -72,14 +73,33 @@ Scripts load in this order. Each one may use the globals defined above it.
 | `js/setup.js` | `Setup` | The "Set up your match" screen: chips, presets, registers, focus, reference pitch, time, difficulty. Draws once, listens once | Step 4 |
 | `js/learn.js` | `Learn` | The Learn tab: Notes (anchor trainer), Intervals and Chords comparators, "Practice this". Unscored, never writes history | Step 5 |
 | `js/stats.js` | `Stats` | The Stats tab ("Your Ear"): trend, listens, matches, per-note bars, confusions, matrix, interval and chord-type bars, and the export / import / reset controls. Read-only on the history except through `Store` | Step 6 |
-| `js/soundcheck.js` | | Temporary Dev-section test buttons (random note, chord, interval). Delete once the real UI exists | Step 1 |
 | `js/app.js` | | Navigation (Practice, Learn and Stats tabs; menu, setup, game), the menu progress cards, the match and answer area (buttons or piano), the input toggle and the question timer; wires every listener once | Steps 3–6 |
+| `js/sw-register.js` | | Registers `sw.js` over https or on localhost only; a failure is ignored. Defines no global | Step 9 |
+
+Not loaded by a script tag:
+
+| File | Purpose | Status |
+| --- | --- | --- |
+| `sw.js` | Service worker: precaches every app file under a versioned cache, serves cache-first, deletes old caches | Step 9 |
+| `manifest.webmanifest` | Install metadata: name "Ear Gym", standalone, start_url and scope `./`, theme colours, icons | Step 9 |
+| `icons/` | `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` (glyph inside the 80% safe zone), `apple-touch-icon.png` (180) | Step 9 |
+| `vendor/salamander/` | The 20 samples `C`, `Ds`, `Fs`, `A` × octaves 3–7 (`C3.mp3` … `A7.mp3`), from the Tone.js audio repo | Step 9 |
+
+## Hosting and offline
+
+- Hosted on GitHub Pages from a subfolder: `https://<user>.github.io/eargym/`. Everything uses relative paths, and the manifest's `start_url` and `scope` are `./`, so the folder name does not matter.
+- `sw.js` precaches every file the app needs (the HTML, CSS, every script, Tone.js, all 20 samples, the icons and the manifest) under the cache name in `CACHE_VERSION`, serves same-origin GETs cache-first, deletes every other cache on activate, and calls `skipWaiting()` and `clients.claim()`.
+- **Bump `CACHE_VERSION` in `sw.js` (`eargym-v1` → `eargym-v2` …) whenever any precached file changes, and keep its `PRECACHE` list in step with the files `index.html` loads.** Otherwise installed phones keep serving the old files forever.
+- `js/sw-register.js` registers the worker only over https or on localhost. On `file://` there is no service worker.
+- Opened from disk (`file://`), browsers refuse to fetch local files, so `audio.js` loads the samples from `https://tonejs.github.io/audio/salamander/` there instead (needs internet). Served over http(s) it always uses `vendor/salamander/`. Either way the 15-second fallback to the synth still applies.
+- localStorage keys and every behavior are unchanged by the PWA layer.
+- To test locally: `python3 -m http.server` in the folder above the repo, then open `http://localhost:8000/eargym/`.
 
 ## Module notes
 
-**`MusicData`** (`js/data.js`): `NOTES`, `NATURALS`, `CHORDS` (keyed by quality, each `{ key, label, name, intervals }`), `QUALITY_KEYS`, `INTERVALS` (each `{ semi, label, name, song }`), the presets for each, `REGISTERS` (three octaves from C3 = MIDI 48), and helpers: `pc`, `octaveOf`, `midiToName`, `midiToFreq`, `nameToMidi`, `midiFrom`, `isBlack`, `pcDistance`, `registerOf`, `enabledRegisters`, `midiInRegister`, `chordPitches`, `chordName`, `intervalBySemi`, `randomItem`.
+**`MusicData`** (`js/data.js`): `NOTES`, `NATURALS`, `CHORDS` (keyed by quality, each `{ key, label, name, intervals }`), `QUALITY_KEYS`, `INTERVALS` (each `{ semi, label, name, song }`), the presets for each, `REGISTERS` (three octaves from C3 = MIDI 48), and helpers: `pc`, `octaveOf`, `midiToName`, `midiToFreq`, `nameToMidi`, `midiFrom`, `isBlack`, `pcDistance`, `registerOf`, `enabledRegisters`, `midiInRegister`, `chordPitches`, `chordName`, `intervalBySemi`.
 
-**`PianoAudio`** (`js/audio.js`): call `init()` once, and use `onReady(cb)` to enable the play button. `playPitches(pitches, gap, blockAfter)` is the only way to make sound. `silenceAll()` stops everything, including notes scheduled for later. Call it when switching tabs or leaving a match.
+**`PianoAudio`** (`js/audio.js`): samples come from `vendor/salamander/`, or from the Tone.js audio site when the page is opened from `file://`. Call `init()` once, and use `onReady(cb)` to enable the play button. `playPitches(pitches, gap, blockAfter)` is the only way to make sound. `silenceAll()` stops everything, including notes scheduled for later. Call it when switching tabs or leaving a match.
 
 - Samples are loaded with `Tone.ToneAudioBuffers` and played as `Tone.ToneBufferSource` voices tracked in our own list. This replaces `Tone.Sampler`, whose `triggerAttackRelease` stops tracking a note as soon as it is scheduled, so `releaseAll()` could never stop it. Sound settings are unchanged: 20 samples (C, D#, F#, A, octaves 3–7), nearest-sample pitch shifting, 0.06s release, −8 dB.
 - The sample and synth paths share the mute → stop voices → wait → unmute sequence.
