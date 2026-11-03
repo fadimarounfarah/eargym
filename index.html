@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14110f">
+  <title>Pitch Trainer</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="card">
+    <h1>Sound check</h1>
+    <p class="subtitle">Step 1: music data and audio engine only.</p>
+
+    <button class="btn" id="noteBtn" disabled>Random note</button>
+    <button class="btn" id="chordBtn" disabled>Random chord</button>
+    <button class="btn" id="intervalBtn" disabled>Random interval</button>
+
+    <label class="toggle">
+      <input type="checkbox" id="arpToggle">
+      Roll chords (arpeggio, then strike together)
+    </label>
+
+    <div class="readout" id="readout" aria-live="polite">
+      <span class="detail">Nothing played yet.</span>
+    </div>
+
+    <button class="btn secondary" id="stopBtn" disabled>Stop sound</button>
+
+    <p class="hint" id="hint">loading piano samples…</p>
+
+    <div class="footer">Sound source: <span id="source">loading…</span></div>
+  </main>
+
+  <!-- Plain scripts, no modules, so the page works from file://. Order matters. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/soundcheck.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# OS clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local scratch and exported practice history
+*.log
+pitch-trainer-history-*.json
+scratch/
