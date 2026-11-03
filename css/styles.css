@@ -79,15 +79,9 @@ input:focus-visible {
 
 /* ---------- header ---------- */
 
-.top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
 
-.top h1 {
+
+.card h1 {
   margin: 0;
   font-size: 22px;
   font-weight: 650;
@@ -127,6 +121,217 @@ input:focus-visible {
 .seg button.active {
   background: var(--amber-dim);
   color: var(--text);
+}
+
+/* ---------- tabs ---------- */
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 40px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab small {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.tab.active {
+  background: var(--amber-dim);
+  color: var(--text);
+}
+
+.tab:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ---------- menu ---------- */
+
+.menu-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ex-card {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, transform 0.08s ease;
+}
+
+.ex-card:hover {
+  border-color: var(--amber-dim);
+}
+
+.ex-card:active {
+  transform: scale(0.99);
+}
+
+.ex-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ex-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--amber) 14%, var(--panel));
+  color: var(--amber);
+  font-size: 20px;
+}
+
+.ex-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ex-name,
+.ex-sub,
+.ex-stat {
+  display: block;
+}
+
+.ex-name {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.ex-sub {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.ex-chev {
+  color: var(--text-dim);
+  font-size: 22px;
+}
+
+.ex-bar {
+  display: block;
+  height: 6px;
+  margin: 12px 0 6px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.ex-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--amber);
+  transition: width 0.25s ease;
+}
+
+.ex-stat {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- navigation inside Practice ---------- */
+
+.back-link {
+  padding: 0 0 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.back-link:hover {
+  color: var(--amber);
+}
+
+.setup-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 16px;
+}
+
+.setup-name {
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.game-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.game-top .back-link {
+  padding-top: 5px;
+}
+
+.method-note {
+  padding-top: 5px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+/* ---------- question timer ---------- */
+
+.timer-track {
+  height: 5px;
+  max-width: 220px;
+  margin: 10px auto 0;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.timer-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--amber);
+}
+
+.timer-fill.low {
+  background: var(--bad);
 }
 
 /* ---------- score strip ---------- */
@@ -400,18 +605,7 @@ input:focus-visible {
 
 /* ---------- input method row ---------- */
 
-.method-row {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-bottom: 10px;
-}
 
-.method-label {
-  color: var(--text-dim);
-  font-size: 12px;
-}
 
 /* ---------- piano board ---------- */
 
@@ -522,12 +716,6 @@ input:focus-visible {
 
 /* ---------- dev setup panel (temporary) ---------- */
 
-.dev-setup {
-  margin: 0 0 14px;
-  border-top: 0;
-  border-bottom: 1px solid var(--line);
-  padding: 0 0 8px;
-}
 
 .field {
   margin-bottom: 12px;
@@ -599,6 +787,39 @@ input:focus-visible {
 .seg button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.field-help {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.field-note.warn {
+  color: var(--bad);
+}
+
+.btn.primary {
+  margin-top: 6px;
+  border-color: var(--amber);
+  background: var(--amber);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+.btn.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn.primary:active:not(:disabled) {
+  background: var(--amber);
+  filter: brightness(0.94);
+}
+
+.btn.primary:disabled {
+  background: var(--amber-dim);
+  border-color: var(--amber-dim);
+  color: var(--text-dim);
 }
 
 .setup-problem {

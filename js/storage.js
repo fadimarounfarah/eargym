@@ -12,6 +12,9 @@
  * schema lives here, even fields a screen does not use yet, so saving from one
  * screen never drops what another screen stored.
  *
+ * The live settings object is held here: read it with settings(), change it
+ * with change(fn). Every change is re-validated and saved.
+ *
  * Depends on: MusicData (js/data.js).
  */
 var Store = (function () {
@@ -117,7 +120,9 @@ var Store = (function () {
 
     s.noteSel = boolArray(saved.noteSel, D.NOTES.length, 2, s.noteSel);
     s.timeLimit = oneOf(saved.timeLimit, TIME_LIMITS, s.timeLimit);
-    if (saved.refPitch === 0 || (isInt(saved.refPitch) && saved.refPitch >= 21 && saved.refPitch <= 108)) {
+    // The reference is any note across the three registers, or 0 for none.
+    if (saved.refPitch === 0 || (isInt(saved.refPitch) && saved.refPitch >= D.REGISTER_LOW &&
+        saved.refPitch < D.REGISTER_LOW + 12 * D.REGISTER_COUNT)) {
       s.refPitch = saved.refPitch;
     }
     s.focusWeak = !!saved.focusWeak;
@@ -131,6 +136,8 @@ var Store = (function () {
     s.chordRoot = rootOrRandom(saved.chordRoot, s.chordRoot);
     s.guessTarget = oneOf(saved.guessTarget, GUESS_TARGETS, s.guessTarget);
     s.chordPlay = oneOf(saved.chordPlay, CHORD_PLAYS, s.chordPlay);
+    // A pinned root is already known, so only the type can be asked.
+    if (s.chordRoot !== 'random') s.guessTarget = 'type';
 
     // The first version stored an octave count ('1', '2' or '3') in `range`.
     // Registers replaced it: migrate that to the same stacked selection.
@@ -152,6 +159,8 @@ var Store = (function () {
     return s;
   }
 
+  var current = null;   // the live settings object
+
   // Always returns a usable settings object, defaults if nothing is stored.
   function loadSettings() {
     var saved = null;
@@ -162,7 +171,23 @@ var Store = (function () {
       if (!(e instanceof SyntaxError)) storageOK = false;
     }
     settingsLoaded = true;
-    return normalizeSettings(saved);
+    current = normalizeSettings(saved);
+    return current;
+  }
+
+  // The live settings. Treat it as read-only; change it with change().
+  function getSettings() {
+    if (!current) current = defaultSettings();
+    return current;
+  }
+
+  // Run fn on a copy of the settings, then validate, keep and save the result.
+  // Returns the new live settings.
+  function change(fn) {
+    var next = JSON.parse(JSON.stringify(getSettings()));
+    fn(next);
+    current = saveSettings(next);
+    return current;
   }
 
   // Does nothing before loadSettings(), so defaults can never overwrite what
@@ -257,6 +282,8 @@ var Store = (function () {
     normalizeSettings: normalizeSettings,
     loadSettings: loadSettings,
     saveSettings: saveSettings,
+    settings: getSettings,
+    change: change,
 
     loadHistory: loadHistory,
     history: getHistory,
