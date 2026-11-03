@@ -13,11 +13,12 @@
  */
 'use strict';
 
-// Defines Instruments. The browser also re-checks imported scripts for
-// changes, so editing js/instruments.js updates the worker too.
-importScripts('js/instruments.js');
+var CACHE_VERSION = 'eargym-v4';
 
-var CACHE_VERSION = 'eargym-v3';
+// Defines Instruments. The version in the URL makes every new CACHE_VERSION
+// fetch a fresh copy: without it a new worker could be handed the previous
+// instruments.js from the HTTP cache and precache the old sample list.
+importScripts('js/instruments.js?v=' + CACHE_VERSION);
 
 var PRECACHE = [
   './',
@@ -27,6 +28,7 @@ var PRECACHE = [
   'vendor/tone/Tone.js',
   'js/instruments.js',
   'js/data.js',
+  'js/guitar.js',
   'js/audio.js',
   'js/storage.js',
   'js/keyboard.js',
@@ -42,7 +44,8 @@ var PRECACHE = [
   'icons/apple-touch-icon.png'
 ];
 
-// Every instrument's vendored samples (for the piano: the 20 Salamander files).
+// Every instrument's vendored samples: the 20 Salamander piano files and the
+// 18 Iowa guitar files.
 PRECACHE = PRECACHE.concat(Instruments.localSamplePaths());
 
 self.addEventListener('install', function (event) {

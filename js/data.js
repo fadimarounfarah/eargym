@@ -79,22 +79,32 @@ var MusicData = (function () {
     return null;
   }
 
-  // One-octave registers cut from the default instrument's playable range.
-  // For the piano that is three, from C3: C3-B3, C4-B4, C5-B5. Settings and
-  // history store registers as a [bool, bool, bool] selection, so the count
-  // must stay 3 (see "Instrument assumptions" in CLAUDE.md).
+  // One-octave registers cut from an instrument's playable range: for the
+  // piano C3-B3, C4-B4, C5-B5; for the guitar E2-D#3, E3-D#4, E4-D#5. Settings
+  // and history store registers as a [bool, bool, bool] selection, so every
+  // instrument has exactly 3 (see "Instrument assumptions" in CLAUDE.md).
+  // REGISTER_LOW and REGISTERS are the default instrument's (the piano's): the
+  // piano boards and Learn use them. Practice uses registersOf(instrumentId).
+  function buildRegisters(low) {
+    var out = [];
+    for (var r = 0; r < REGISTER_COUNT; r++) {
+      out.push({
+        index: r,
+        low: low + r * 12,
+        high: low + r * 12 + 11,
+        label: midiToName(low + r * 12) + '–' + midiToName(low + r * 12 + 11)
+      });
+    }
+    return out;
+  }
   var RANGE = Instruments.get(Instruments.DEFAULT).range;
   var REGISTER_LOW = RANGE.low;                                  // C3
   var REGISTER_COUNT = Math.floor((RANGE.high - RANGE.low + 1) / 12);   // 3
-  var REGISTERS = [];
-  for (var r = 0; r < REGISTER_COUNT; r++) {
-    REGISTERS.push({
-      index: r,
-      low: REGISTER_LOW + r * 12,
-      high: REGISTER_LOW + r * 12 + 11,
-      label: midiToName(REGISTER_LOW + r * 12) + '–' + midiToName(REGISTER_LOW + r * 12 + 11)
-    });
-  }
+  var REGISTERS = buildRegisters(REGISTER_LOW);
+
+  // The lowest note of an instrument's first register, and its registers.
+  function registerLowOf(instrumentId) { return Instruments.get(instrumentId).range.low; }
+  function registersOf(instrumentId) { return buildRegisters(registerLowOf(instrumentId)); }
   var DEFAULT_REGISTERS = [true, false, false];
 
   /* ---------- helpers ---------- */
@@ -133,8 +143,9 @@ var MusicData = (function () {
   }
 
   // Which register (0-based) a MIDI number falls in, or -1 if outside all.
-  function registerOf(midi) {
-    var i = Math.floor((midi - REGISTER_LOW) / 12);
+  // `low` is the first register's lowest note (default: the piano's C3).
+  function registerOf(midi, low) {
+    var i = Math.floor((midi - (low === undefined ? REGISTER_LOW : low)) / 12);
     return i >= 0 && i < REGISTER_COUNT ? i : -1;
   }
 
@@ -145,9 +156,11 @@ var MusicData = (function () {
     return out;
   }
 
-  // MIDI of a pitch class within a register.
-  function midiInRegister(pitchClass, regIndex) {
-    return REGISTER_LOW + regIndex * 12 + pc(pitchClass);
+  // MIDI of a pitch class within a register. `low` is the first register's
+  // lowest note (default: the piano's C3); registers need not start on a C.
+  function midiInRegister(pitchClass, regIndex, low) {
+    if (low === undefined) low = REGISTER_LOW;
+    return low + regIndex * 12 + pc(pitchClass - low);
   }
 
   function chordPitches(rootMidi, qualityKey) {
@@ -175,6 +188,8 @@ var MusicData = (function () {
     REGISTER_COUNT: REGISTER_COUNT,
     REGISTERS: REGISTERS,
     DEFAULT_REGISTERS: DEFAULT_REGISTERS,
+    registerLowOf: registerLowOf,
+    registersOf: registersOf,
 
     intervalBySemi: intervalBySemi,
     pc: pc,

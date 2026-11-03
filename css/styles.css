@@ -1175,6 +1175,12 @@ input:focus-visible {
   cursor: default;
 }
 
+.stats-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .field-help {
   margin: 6px 0 0;
   color: var(--text-dim);

@@ -76,6 +76,16 @@
         <span class="setup-name" id="setupName"></span>
       </div>
 
+      <!-- instrument, for every exercise -->
+      <div class="field">
+        <div class="field-label">Instrument</div>
+        <div class="seg" id="instSeg" role="group" aria-label="Instrument">
+          <button type="button" data-inst="piano">Piano</button>
+          <button type="button" data-inst="guitar">Guitar</button>
+        </div>
+        <p class="field-help" id="instNote"></p>
+      </div>
+
       <!-- items in play -->
       <div class="field" data-for="notes">
         <div class="field-label">Notes <span class="field-note" id="noteCount"></span></div>
@@ -115,10 +125,11 @@
         <span class="ref-arrow" aria-hidden="true">&#8250;</span>
       </button>
 
-      <!-- registers, for every exercise -->
-      <div class="field">
+      <!-- registers, for every exercise (not guitar chords: those go by root) -->
+      <div class="field" id="regField">
         <div class="field-label"><span id="regLabel">Registers</span> <span class="field-note" id="regNote"></span></div>
         <div class="chips" id="regChips"></div>
+        <p class="field-help hidden" id="ivlCapNote"></p>
       </div>
 
       <!-- Pitch only -->
@@ -360,9 +371,16 @@
       </div>
 
       <div id="statsBody">
-        <div class="seg" id="scopeSeg" role="group" aria-label="Which answers to count">
-          <button type="button" data-scope="recent">Recent 100</button>
-          <button type="button" data-scope="all">All time</button>
+        <div class="stats-filters">
+          <div class="seg" id="scopeSeg" role="group" aria-label="Which answers to count">
+            <button type="button" data-scope="recent">Recent 100</button>
+            <button type="button" data-scope="all">All time</button>
+          </div>
+          <div class="seg" id="instFilterSeg" role="group" aria-label="Which instrument to count">
+            <button type="button" data-inst-filter="piano">Piano</button>
+            <button type="button" data-inst-filter="guitar">Guitar</button>
+            <button type="button" data-inst-filter="all">All</button>
+          </div>
         </div>
         <p class="field-help">Recent counts your last 100 answers of each kind.</p>
 
@@ -430,6 +448,7 @@
   <script src="vendor/tone/Tone.js"></script>
   <script src="js/instruments.js"></script>
   <script src="js/data.js"></script>
+  <script src="js/guitar.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/keyboard.js"></script>

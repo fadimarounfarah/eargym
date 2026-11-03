@@ -16,7 +16,9 @@
 
   window.addEventListener('load', function () {
     try {
-      navigator.serviceWorker.register('sw.js').catch(function () {});
+      // updateViaCache 'none': update checks always ask the server for sw.js
+      // and the scripts it imports, never the HTTP cache.
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function () {});
     } catch (e) {
       // Ignore: offline support is optional.
     }

@@ -48,16 +48,20 @@ var PianoAudio = (function () {
 
   /* ---------- state ---------- */
 
-  var inst = Instruments.get(Instruments.DEFAULT);   // set by init()
+  var inst = Instruments.get(Instruments.DEFAULT);   // the selected instrument
   var sampleMidis = [];   // inst's sample notes, ascending
   var engine = null;      // null while loading, then 'samples' or 'synth'
   var sourceLabel = inst.loadingLabel;
-  var readyCallbacks = [];
+  var readyCallbacks = [];   // one-shot, see onReady()
+  var statusListeners = [];  // every change, see onStatus()
+  var started = false;
+  var loadToken = 0;      // bumped by every load(); a stale load is ignored
   var playToken = 0;
   var voices = [];        // { stop(time) } for every sounding or scheduled note
 
   // Samples path
-  var buffers = null;     // Tone.ToneAudioBuffers keyed by midi
+  var buffers = null;     // Tone.ToneAudioBuffers of inst, keyed by midi
+  var loaded = {};        // instrument id -> its loaded ToneAudioBuffers
   var sampleVolume = null;
   var sampleOut = null;   // Tone.Gain used to mute/unmute
 
@@ -68,37 +72,59 @@ var PianoAudio = (function () {
 
   /* ---------- loading ---------- */
 
-  // Loads one instrument (an id from Instruments; unknown ids get the
-  // default). Call once: switching instruments later is not built yet.
+  // Call once at startup with the saved instrument id (unknown ids get the
+  // default). Later changes go through load().
   function init(instrumentId) {
-    if (engine || buffers) return;
-    inst = Instruments.get(instrumentId);
+    if (started) return;
+    load(instrumentId);
+  }
+
+  /* Switch to an instrument and load its samples (only its own: each set is
+   * fetched the first time it is chosen, then kept). Everything sounding or
+   * scheduled is stopped first, and audio is not ready again until the new
+   * samples (or the synth fallback) are. Loading the instrument that is
+   * already selected does nothing. */
+  function load(instrumentId) {
+    var next = Instruments.get(instrumentId);
+    if (started && next === inst) return;
+    started = true;
+    silenceAll();
+    inst = next;
+    engine = null;
     sourceLabel = inst.loadingLabel;
     sampleMidis = Object.keys(inst.samples.files).map(Number).sort(function (a, b) { return a - b; });
+    var token = ++loadToken;
+    notify();
     if (typeof Tone === 'undefined') { useSynth('Tone.js unavailable'); return; }
+    if (loaded[inst.id]) { buffers = loaded[inst.id]; useSamples(); return; }
 
+    var id = inst.id;
     var settled = false;
     var timer = setTimeout(function () {
       if (settled) return;
       settled = true;
-      useSynth('samples timed out');
+      if (token === loadToken) useSynth('samples timed out');
     }, LOAD_TIMEOUT_MS);
 
     function fail() {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      useSynth('samples failed to load');
+      if (token === loadToken) useSynth('samples failed to load');
     }
 
     try {
-      buffers = new Tone.ToneAudioBuffers({
+      var set = new Tone.ToneAudioBuffers({
         urls: inst.samples.files,
         baseUrl: FROM_DISK ? inst.samples.remote : inst.samples.local,
         onload: function () {
+          // Kept even if the player has moved on, so going back is instant.
+          loaded[id] = set;
           if (settled) return;
           settled = true;
           clearTimeout(timer);
+          if (token !== loadToken) return;
+          buffers = set;
           useSamples();
         },
         onerror: fail
@@ -109,10 +135,13 @@ var PianoAudio = (function () {
   }
 
   function useSamples() {
-    sampleVolume = new Tone.Volume(inst.volumeDb);
-    sampleOut = new Tone.Gain(1);
-    sampleVolume.connect(sampleOut);
-    sampleOut.toDestination();
+    if (!sampleOut) {
+      sampleVolume = new Tone.Volume(inst.volumeDb);
+      sampleOut = new Tone.Gain(1);
+      sampleVolume.connect(sampleOut);
+      sampleOut.toDestination();
+    }
+    sampleVolume.volume.value = inst.volumeDb;
     setReady('samples', inst.sourceLabel);
   }
 
@@ -122,15 +151,17 @@ var PianoAudio = (function () {
       sourceLabel = 'no audio available (' + reason + ')';
       return;
     }
-    ctx = new AC();
-    // One shared low-pass replaces a per-voice filter: same sound, fewer nodes.
-    synthIn = ctx.createBiquadFilter();
-    synthIn.type = 'lowpass';
+    if (!ctx) {
+      ctx = new AC();
+      // One shared low-pass replaces a per-voice filter: same sound, fewer nodes.
+      synthIn = ctx.createBiquadFilter();
+      synthIn.type = 'lowpass';
+      synthOut = ctx.createGain();
+      synthOut.gain.value = 1;
+      synthIn.connect(synthOut);
+      synthOut.connect(ctx.destination);
+    }
     synthIn.frequency.value = inst.synth.lowpass;
-    synthOut = ctx.createGain();
-    synthOut.gain.value = 1;
-    synthIn.connect(synthOut);
-    synthOut.connect(ctx.destination);
     setReady('synth', inst.synth.label + ' (' + reason + ')');
   }
 
@@ -140,7 +171,19 @@ var PianoAudio = (function () {
     var cbs = readyCallbacks;
     readyCallbacks = [];
     cbs.forEach(function (cb) { try { cb(label, kind); } catch (e) { console.error(e); } });
+    notify();
   }
+
+  function notify() {
+    statusListeners.forEach(function (cb) {
+      try { cb(sourceLabel, engine, inst); } catch (e) { console.error(e); }
+    });
+  }
+
+  // Calls cb(label, kind, instrument) on every change: when an instrument
+  // starts loading (kind null, label its loading text) and when it is ready
+  // (kind 'samples' or 'synth').
+  function onStatus(cb) { statusListeners.push(cb); }
 
   // Calls cb(label, kind) once audio is ready, immediately if it already is.
   function onReady(cb) {
@@ -282,13 +325,16 @@ var PianoAudio = (function () {
   /* Play MIDI pitches.
    *   gap > 0        roll the notes out `gap` seconds apart instead of together.
    *   blockAfter > 0 after the roll, wait this long and strike them all together.
+   *   strum > 0      a strike "together" is strummed instead: each note starts
+   *                  `strum` seconds after the one below it (guitar chords).
    * A newer call (or silenceAll) cancels anything this one has not played yet.
    * Resolves true if it played, false if it was cancelled or audio is not ready.
    */
-  function playPitches(pitches, gap, blockAfter) {
+  function playPitches(pitches, gap, blockAfter, strum) {
     if (!engine || !pitches || !pitches.length) return Promise.resolve(false);
     var token = ++playToken;
     var step = gap > 0 ? gap : 0;
+    var spread = strum > 0 ? strum : 0;
     var pause = blockAfter > 0 ? blockAfter : 0;
     // Rolled notes are cut shorter so they have begun to fade before the
     // strike, which keeps the block from being buried under them.
@@ -314,9 +360,9 @@ var PianoAudio = (function () {
 
         var rollLevel = inst.synth.level / Math.sqrt(step ? 1 : n);
         var blockLevel = inst.synth.level / Math.sqrt(n);
-        pitches.forEach(function (m, i) { startVoice(m, start + i * step, rollDur, rollLevel); });
+        pitches.forEach(function (m, i) { startVoice(m, start + i * (step || spread), rollDur, rollLevel); });
         if (blockAt !== null) {
-          pitches.forEach(function (m) { startVoice(m, start + blockAt, TIMING.noteDur, blockLevel); });
+          pitches.forEach(function (m, i) { startVoice(m, start + blockAt + i * spread, TIMING.noteDur, blockLevel); });
         }
         return true;
       });
@@ -339,7 +385,9 @@ var PianoAudio = (function () {
     TIMING: TIMING,
     LOAD_TIMEOUT_MS: LOAD_TIMEOUT_MS,
     init: init,
+    load: load,
     onReady: onReady,
+    onStatus: onStatus,
     isReady: function () { return engine !== null; },
     engine: function () { return engine; },
     sourceLabel: function () { return sourceLabel; },

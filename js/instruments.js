@@ -6,8 +6,8 @@
  * samples cannot load. The click-free fade timings in PianoAudio.playPitches
  * are not part of an instrument: they are shared by all of them.
  *
- * Only "piano" is registered for now. It holds exactly the Salamander setup the
- * app has always used.
+ * Two are registered: "piano", exactly the Salamander setup the app has always
+ * used, and "guitar", the University of Iowa steel-string acoustic.
  *
  * Fields:
  *   id            key stored in settings.instrument
@@ -24,6 +24,12 @@
  *   volumeDb      sample output level
  *   sourceLabel   footer text while the samples are in use
  *   loadingLabel  hint text while the samples load
+ *   maxSounding   MIDI of the highest note worth playing, or null for no limit.
+ *                 Interval questions whose top note is higher are left out
+ *                 (see Game.intervalCandidates)
+ *   keyboardInput true if the on-screen piano can be used to answer
+ *   chordVoicing  'close' (stack the chord shape on the root) or 'guitar'
+ *                 (a real guitar voicing from js/guitar.js, strummed)
  *   synth         fallback additive synth used when the samples fail:
  *                   label     footer text, followed by " (reason)"
  *                   partials  { mult, gain, decay } per sine partial
@@ -43,15 +49,27 @@ var Instruments = (function () {
 
   var DEFAULT = 'piano';
 
+  function midi(pc, octave) { return (octave + 1) * 12 + pc; }
+
   // Salamander has C, D#, F# and A in octaves 3 to 7: 20 files.
   function salamanderFiles() {
     var files = {};
     var names = { 0: 'C', 3: 'Ds', 6: 'Fs', 9: 'A' };
     for (var oct = 3; oct <= 7; oct++) {
       Object.keys(names).forEach(function (p) {
-        files[(oct + 1) * 12 + Number(p)] = names[p] + oct + '.mp3';
+        files[midi(Number(p), oct)] = names[p] + oct + '.mp3';
       });
     }
+    return files;
+  }
+
+  // The Iowa acoustic guitar set is recorded on every semitone from D2 to D5.
+  // We ship every other one from E2 (the low string) up to D5, the top
+  // recording: 18 files, so no note is shifted by more than a semitone.
+  function guitarFiles() {
+    var names = ['C', 'Cs', 'D', 'Ds', 'E', 'F', 'Fs', 'G', 'Gs', 'A', 'As', 'B'];
+    var files = {};
+    for (var m = 40; m <= 74; m += 2) files[m] = names[m % 12] + (Math.floor(m / 12) - 1) + '.mp3';
     return files;
   }
 
@@ -69,6 +87,9 @@ var Instruments = (function () {
       volumeDb: -8,
       sourceLabel: 'Salamander Grand Piano samples',
       loadingLabel: 'loading piano samples…',
+      maxSounding: null,
+      keyboardInput: true,
+      chordVoicing: 'close',
       synth: {
         label: 'built-in piano synth',
         partials: [
@@ -86,6 +107,43 @@ var Instruments = (function () {
         stopRamp: 0.025,
         lowpass: 6000,
         noise: { dur: 0.03, harmonic: 3, gain: 0.12 }   // the hammer
+      }
+    },
+    {
+      id: 'guitar',
+      label: 'Guitar',
+      range: { low: 40, high: 75 },   // E2 to D#5: three registers from the low E string
+      samples: {
+        local: 'vendor/guitar/',
+        remote: 'https://raw.githubusercontent.com/nbrosowsky/tonejs-instruments/master/samples/guitar-acoustic/',
+        files: guitarFiles()
+      },
+      release: 0.06,
+      volumeDb: -14,                  // the recordings are about 6 dB hotter than the piano's
+      sourceLabel: 'acoustic guitar samples',
+      loadingLabel: 'loading guitar samples…',
+      // The top recording is D5 (74). Shifting it up more than 3 semitones
+      // sounds thin and short, so nothing above F5 (77) is asked.
+      maxSounding: 77,
+      keyboardInput: false,           // buttons only until the fretboard arrives
+      chordVoicing: 'guitar',
+      synth: {
+        label: 'built-in guitar synth',
+        partials: [
+          { mult: 1, gain: 1.00, decay: 2.2 },
+          { mult: 2, gain: 0.60, decay: 1.5 },
+          { mult: 3, gain: 0.38, decay: 1.0 },
+          { mult: 4, gain: 0.22, decay: 0.7 },
+          { mult: 5, gain: 0.14, decay: 0.5 },
+          { mult: 6, gain: 0.08, decay: 0.35 },
+          { mult: 8, gain: 0.04, decay: 0.25 }
+        ],
+        stretch: 0.0002,
+        detune: 4,
+        level: 0.22,
+        stopRamp: 0.025,
+        lowpass: 4500,
+        noise: { dur: 0.012, harmonic: 5, gain: 0.08 }  // the pick
       }
     }
   ];
