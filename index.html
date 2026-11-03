@@ -19,7 +19,104 @@
         <button type="button" data-diff="hard">Hard</button>
       </div>
     </header>
-    <p class="subtitle">Name the note you hear.</p>
+    <p class="subtitle" id="subtitle">Name the note you hear.</p>
+
+    <!-- Temporary developer panel: mode and match options. Replaced by the
+         menu and setup screens in a later step. Built by js/app.js. -->
+    <details class="dev dev-setup" id="devSetup">
+      <summary>Dev: match setup</summary>
+      <div class="dev-body" id="setupBody">
+        <div class="field">
+          <div class="field-label">Mode</div>
+          <div class="seg" id="modeSeg" role="group" aria-label="Mode">
+            <button type="button" data-mode="notes">Notes</button>
+            <button type="button" data-mode="chords">Chords</button>
+            <button type="button" data-mode="intervals">Intervals</button>
+          </div>
+        </div>
+
+        <div id="setupNotes">
+          <div class="field">
+            <div class="field-label">Notes <span class="field-note" id="noteCount"></span></div>
+            <div class="chips" id="noteChips"></div>
+            <div class="mini-row">
+              <button type="button" class="mini" data-npreset="all">All 12</button>
+              <button type="button" class="mini" data-npreset="naturals">Naturals only</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Registers</div>
+            <div class="chips" data-regs="registers"></div>
+          </div>
+        </div>
+
+        <div id="setupIntervals">
+          <div class="field">
+            <div class="field-label">Intervals <span class="field-note" id="ivlCount"></span></div>
+            <div class="chips" id="ivlChips"></div>
+            <div class="mini-row">
+              <button type="button" class="mini" data-ipreset="wide">Wide gaps</button>
+              <button type="button" class="mini" data-ipreset="thirds">Thirds only</button>
+              <button type="button" class="mini" data-ipreset="all">All 12</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Direction</div>
+            <div class="seg" id="dirSeg" role="group" aria-label="Direction">
+              <button type="button" data-dir="asc">Ascending</button>
+              <button type="button" data-dir="desc">Descending</button>
+              <button type="button" data-dir="mixed">Mixed</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="ivlRootSel">Root</label>
+            <select id="ivlRootSel" class="select"></select>
+          </div>
+          <div class="field">
+            <div class="field-label">Registers of the lower note <span class="field-note">shared with Notes</span></div>
+            <div class="chips" data-regs="registers"></div>
+          </div>
+        </div>
+
+        <div id="setupChords">
+          <div class="field">
+            <div class="field-label">Chord types <span class="field-note" id="qualCount"></span></div>
+            <div class="chips" id="qualChips"></div>
+            <div class="mini-row">
+              <button type="button" class="mini" data-qpreset="basic">Basic</button>
+              <button type="button" class="mini" data-qpreset="triads">Triads</button>
+              <button type="button" class="mini" data-qpreset="sevenths">Sevenths</button>
+              <button type="button" class="mini" data-qpreset="all">All</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="chordRootSel">Root</label>
+            <select id="chordRootSel" class="select"></select>
+          </div>
+          <div class="field">
+            <div class="field-label">Registers of the root</div>
+            <div class="chips" data-regs="chordRegisters"></div>
+          </div>
+          <div class="field">
+            <div class="field-label">What to guess <span class="field-note" id="guessNote"></span></div>
+            <div class="seg" id="guessSeg" role="group" aria-label="What to guess">
+              <button type="button" data-guess="both">Both</button>
+              <button type="button" data-guess="root">Root only</button>
+              <button type="button" data-guess="type">Type only</button>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">Playback</div>
+            <div class="seg" id="playSeg" role="group" aria-label="Playback">
+              <button type="button" data-play="block">Block</button>
+              <button type="button" data-play="arp">Arpeggio</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="setup-problem hidden" id="setupProblem"></p>
+      </div>
+    </details>
 
     <!-- Score strip -->
     <section class="score" aria-label="Score">
@@ -30,7 +127,7 @@
       </div>
       <div class="stat">
         <span class="num"><span id="qNum">1</span><span class="of">/<span id="qTotal">24</span></span></span>
-        <span class="lbl">note</span>
+        <span class="lbl" id="qLabel">note</span>
       </div>
       <div class="stat">
         <span class="num" id="streak">0</span>
@@ -49,12 +146,26 @@
 
     <!-- Question -->
     <div id="game">
+      <div class="method-row" id="methodRow">
+        <span class="method-label">Answer with</span>
+        <div class="seg" id="methodSeg" role="group" aria-label="Answer with">
+          <button type="button" data-method="buttons">Buttons</button>
+          <button type="button" data-method="piano">Piano</button>
+          <button type="button" data-method="names">Names</button>
+          <button type="button" data-method="semitones">Semitones</button>
+        </div>
+      </div>
       <button type="button" class="play" id="playBtn" disabled>
         <span class="play-icon" aria-hidden="true">&#9654;</span> Play
       </button>
       <p class="hint" id="hint">loading piano samples…</p>
       <div class="feedback" id="feedback" aria-live="polite"></div>
-      <div class="note-grid" id="answers"></div>
+      <p class="drill" id="drill"></p>
+      <div id="answers"></div>
+      <div class="piano-wrap hidden" id="pianoWrap">
+        <div id="piano"></div>
+      </div>
+      <button type="button" class="btn submit hidden" id="submitBtn" disabled>Submit answer</button>
     </div>
 
     <!-- End-of-match summary: replaces the answers when the match ends -->
@@ -96,6 +207,7 @@
   <script src="js/data.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/keyboard.js"></script>
   <script src="js/game.js"></script>
   <script src="js/soundcheck.js"></script>
   <script src="js/app.js"></script>
