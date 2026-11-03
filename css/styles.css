@@ -1438,3 +1438,7 @@ input:focus-visible {
     transition: none;
   }
 }
+
+#statsPaused {
+  margin: 0 0 12px;
+}
