@@ -135,7 +135,7 @@ var Learn = (function () {
   // piano is still loading.
   function sound(pitches, gap, blockAfter) {
     if (!PianoAudio.isReady()) {
-      setDisplay('—', 'loading piano samples…');
+      setDisplay('—', PianoAudio.loadingLabel());
       return false;
     }
     light(pitches);

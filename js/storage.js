@@ -17,7 +17,10 @@
  * The live settings object is held here: read it with settings(), change it
  * with change(fn). Every change is re-validated and saved.
  *
- * Depends on: MusicData (js/data.js).
+ * New answers, plays and matches carry an instrument tag `i` ("piano",
+ * "guitar"). Older entries have none and count as piano.
+ *
+ * Depends on: Instruments (js/instruments.js), MusicData (js/data.js).
  */
 var Store = (function () {
   'use strict';
@@ -104,6 +107,8 @@ var Store = (function () {
       registers: D.DEFAULT_REGISTERS.slice(),
       chordRegisters: D.DEFAULT_REGISTERS.slice(),
 
+      instrument: Instruments.DEFAULT,   // no UI yet: always "piano" for now
+
       learnMode: 'notes',
       anchorOn: true,
       anchorMidi: 60,
@@ -111,6 +116,13 @@ var Store = (function () {
       cmpB: 'min',
       arpeggio: false
     };
+  }
+
+  function refPitchInRange(m) {
+    return Instruments.ids().some(function (id) {
+      var low = D.registerLowOf(id);
+      return m >= low && m < low + 12 * D.REGISTER_COUNT;
+    });
   }
 
   // Turn anything (usually parsed JSON) into a complete, valid settings object.
@@ -125,9 +137,10 @@ var Store = (function () {
 
     s.noteSel = boolArray(saved.noteSel, D.NOTES.length, 2, s.noteSel);
     s.timeLimit = oneOf(saved.timeLimit, TIME_LIMITS, s.timeLimit);
-    // The reference is any note across the three registers, or 0 for none.
-    if (saved.refPitch === 0 || (isInt(saved.refPitch) && saved.refPitch >= D.REGISTER_LOW &&
-        saved.refPitch < D.REGISTER_LOW + 12 * D.REGISTER_COUNT)) {
+    // The reference is any note across some instrument's three registers, or 0
+    // for none. The setup screen offers the selected instrument's notes, and
+    // moves the saved one by octaves into range when the instrument changes.
+    if (saved.refPitch === 0 || (isInt(saved.refPitch) && refPitchInRange(saved.refPitch))) {
       s.refPitch = saved.refPitch;
     }
     s.focusWeak = !!saved.focusWeak;
@@ -153,6 +166,8 @@ var Store = (function () {
       s.registers = oneHot(D.REGISTER_COUNT, [0, 1, 2].filter(function (i) { return i < n; }));
     }
     s.chordRegisters = boolArray(saved.chordRegisters, D.REGISTER_COUNT, 1, s.chordRegisters);
+
+    s.instrument = Instruments.has(saved.instrument) ? saved.instrument : s.instrument;
 
     s.learnMode = oneOf(saved.learnMode, MODES, s.learnMode);
     s.anchorOn = saved.anchorOn !== false;
@@ -240,26 +255,34 @@ var Store = (function () {
     if (list.length > max) list.splice(0, list.length - max);
   }
 
+  // The instrument tag `i` on answers, plays and matches. Entries written
+  // before instruments existed have none, and count as piano.
+  function instrumentTag(id) { return Instruments.has(id) ? id : Instruments.DEFAULT; }
+
+  // An `i` read from an import is kept if it looks like an instrument id, even
+  // one this version does not know, so nothing a newer version wrote is lost.
+  function validTag(v) { return typeof v === 'string' && /^[a-z][a-z0-9-]{0,31}$/.test(v); }
+
   // One entry per graded answer. `kind` is note | root | qual | ivl. Target and
   // guess are always stored as strings: a pitch class "0"-"11", a quality key,
-  // or a semitone count.
-  function pushAnswer(kind, target, guess) {
-    var entry = { k: kind, t: String(target), g: String(guess), ts: Date.now() };
+  // or a semitone count. `instrument` is the id stored as `i`.
+  function pushAnswer(kind, target, guess, instrument) {
+    var entry = { k: kind, t: String(target), g: String(guess), ts: Date.now(), i: instrumentTag(instrument) };
     history.answers.push(entry);
     cap(history.answers, MAX_ANSWERS);
     return entry;
   }
 
   // One entry per question: how many listens it took and whether it landed.
-  function pushPlay(correct, plays, mode) {
-    var entry = { ts: Date.now(), correct: !!correct, plays: Math.max(1, plays | 0), mode: mode };
+  function pushPlay(correct, plays, mode, instrument) {
+    var entry = { ts: Date.now(), correct: !!correct, plays: Math.max(1, plays | 0), mode: mode, i: instrumentTag(instrument) };
     history.plays.push(entry);
     cap(history.plays, MAX_PLAYS);
     return entry;
   }
 
   // `match` is { ts, points, hits, answered, acc, mode, method, difficulty,
-  // quals, guess, playAs, notes, registers, ko }, built by the game.
+  // quals, guess, playAs, notes, registers, ko, i }, built by the game.
   function pushMatch(match) {
     history.matches.push(match);
     cap(history.matches, MAX_MATCHES);
@@ -286,18 +309,23 @@ var Store = (function () {
   function cleanAnswer(a) {
     if (!isObject(a) || ANSWER_KINDS.indexOf(a.k) === -1 || !isNum(a.ts)) return null;
     if (a.t === undefined || a.t === null || a.g === undefined || a.g === null) return null;
-    return { k: a.k, t: String(a.t), g: String(a.g), ts: a.ts };
+    var out = { k: a.k, t: String(a.t), g: String(a.g), ts: a.ts };
+    if (validTag(a.i)) out.i = a.i;
+    return out;
   }
 
   function cleanMatch(m) {
     if (!isObject(m) || !isNum(m.ts) || !isNum(m.points) || !isNum(m.acc)) return null;
     if (MODE_NAMES.indexOf(m.mode) === -1) return null;
+    if (m.i !== undefined && !validTag(m.i)) delete m.i;
     return m;
   }
 
   function cleanPlay(p) {
     if (!isObject(p) || !isNum(p.ts) || !isNum(p.plays) || p.plays < 1 || MODE_NAMES.indexOf(p.mode) === -1) return null;
-    return { ts: p.ts, correct: !!p.correct, plays: Math.floor(p.plays), mode: p.mode };
+    var out = { ts: p.ts, correct: !!p.correct, plays: Math.floor(p.plays), mode: p.mode };
+    if (validTag(p.i)) out.i = p.i;
+    return out;
   }
 
   function answerKey(a) { return a.ts + '|' + a.k + '|' + a.t + '|' + a.g; }
@@ -395,6 +423,7 @@ var Store = (function () {
     pushPlay: pushPlay,
     pushMatch: pushMatch,
     saveHistory: saveHistory,
+    instrumentOf: function (entry) { return entry && validTag(entry.i) ? entry.i : Instruments.DEFAULT; },
     exportJson: exportJson,
     mergeHistory: mergeHistory,
     resetHistory: resetHistory

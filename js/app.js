@@ -6,7 +6,7 @@
  * Setup.init(). Answer buttons and piano keys are handled by delegation on
  * their containers, so redrawing them can never stack handlers.
  *
- * Depends on: MusicData, PianoAudio, Store, Keyboard, Game, Setup, Learn, Stats.
+ * Depends on: Instruments, MusicData, PianoAudio, Store, Keyboard, Game, Setup, Learn, Stats.
  */
 (function () {
   'use strict';
@@ -379,6 +379,9 @@
     var showToggle = !!match && (isIntervals || Game.pianoAllowed(st));
     els.methodSeg.classList.toggle('hidden', !showToggle);
     els.methodNote.classList.toggle('hidden', !match || showToggle);
+    var inst = Instruments.get(st.instrument);
+    els.methodNote.textContent = inst.keyboardInput ? 'Buttons only for type answers'
+      : 'Buttons only on ' + inst.label.toLowerCase();
     each(els.methodSeg.querySelectorAll('[data-method]'), function (b) {
       var forIntervals = b.getAttribute('data-method') === 'names' || b.getAttribute('data-method') === 'semitones';
       b.classList.toggle('hidden', forIntervals !== isIntervals);
@@ -466,7 +469,7 @@
     renderAnswerArea();
     if (!match) return;
     showNextQuestion();
-    setHint(audioReady ? 'tap to listen' : 'loading piano samples…');
+    setHint(audioReady ? 'tap to listen' : PianoAudio.loadingLabel());
   }
 
   function showNextQuestion() {
@@ -576,7 +579,7 @@
     setHint(res.replay
       ? 'replay ' + (s.roundPlays - 1) + (res.cost ? ' · −' + res.cost + ' health' : '')
       : 'now answer below');
-    PianoAudio.playPitches(res.pitches, res.gap, res.blockAfter);
+    PianoAudio.playPitches(res.pitches, res.gap, res.blockAfter, res.strum);
   }
 
   function onAnswerButton(e) {
@@ -674,15 +677,17 @@
 
   Stats.init();
 
-  PianoAudio.onReady(function (label, kind) {
-    audioReady = true;
+  // Fires when an instrument starts loading (kind null) and when it is ready.
+  // The instrument can only change on the setup screen, where no match is
+  // running, so a redraw here never loses a half-given answer.
+  PianoAudio.onStatus(function (label, kind) {
+    audioReady = !!kind;
     els.source.textContent = label;
-    els.source.className = kind === 'samples' ? 'samples' : 'synth';
-    // Redraw so the answer buttons come up enabled. Nothing can have been
-    // answered yet, so there is no partial answer to lose.
+    els.source.className = kind === 'samples' ? 'samples' : kind === 'synth' ? 'synth' : '';
+    // Redraw so the answer buttons come up enabled (or disabled while loading).
     if (match && !match.state().over) {
       renderAnswerArea();
-      setHint('tap to listen');
+      setHint(audioReady ? 'tap to listen' : label);
     }
     syncPlayButton();
     syncSubmit();
@@ -690,5 +695,5 @@
 
   syncStorageNote();
   showView('menu');
-  PianoAudio.init();
+  PianoAudio.init(Store.settings().instrument);
 })();

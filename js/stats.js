@@ -11,6 +11,9 @@
  * their own. Everything drawn is built with textContent and SVG elements.
  * Every listener is attached once, in init(), by delegation on the view.
  *
+ * A Piano / Guitar / All filter (session-only, All by default) narrows every
+ * section to entries tagged with that instrument; untagged entries are piano.
+ *
  * Depends on: MusicData, Store.
  */
 var Stats = (function () {
@@ -174,6 +177,13 @@ var Stats = (function () {
   var els = null;
   var scope = 'recent';          // recent | all
   var trendMode = 'notes';       // which exercise the trend shows
+  var instFilter = 'all';        // piano | guitar | all
+
+  // The entries recorded on the filtered instrument (all of them for All).
+  function byInstrument(list, inst) {
+    if (inst === 'all') return list;
+    return list.filter(function (e) { return Store.instrumentOf(e) === inst; });
+  }
 
   function make(tag, className, text) {
     var node = document.createElement(tag);
@@ -397,10 +407,13 @@ var Stats = (function () {
     if (empty) return;
 
     setActive(els.scopeSeg, 'data-scope', scope);
-    var tables = buildTables(h.answers, scope);
-    renderTrend(h.matches);
-    renderReplays(h.plays);
-    renderMatches(h.matches);
+    setActive(els.instFilterSeg, 'data-inst-filter', instFilter);
+    var answers = byInstrument(h.answers, instFilter);
+    var matches = byInstrument(h.matches, instFilter);
+    var tables = buildTables(answers, scope);
+    renderTrend(matches);
+    renderReplays(byInstrument(h.plays, instFilter));
+    renderMatches(matches);
     renderNoteBars(tables);
     renderConfusions(tables);
     renderMatrix(tables);
@@ -490,6 +503,9 @@ var Stats = (function () {
     if (b.hasAttribute('data-scope')) {
       scope = b.getAttribute('data-scope');
       render();
+    } else if (b.hasAttribute('data-inst-filter')) {
+      instFilter = b.getAttribute('data-inst-filter');
+      render();
     } else if (b.hasAttribute('data-trend')) {
       trendMode = b.getAttribute('data-trend');
       render();
@@ -517,7 +533,7 @@ var Stats = (function () {
   // Call once: finds the elements and attaches every listener.
   function init() {
     els = {
-      view: $('statsView'), paused: $('statsPaused'), empty: $('statsEmpty'), body: $('statsBody'), scopeSeg: $('scopeSeg'),
+      view: $('statsView'), paused: $('statsPaused'), empty: $('statsEmpty'), body: $('statsBody'), scopeSeg: $('scopeSeg'), instFilterSeg: $('instFilterSeg'),
       trendSeg: $('trendSeg'), trend: $('trend'), replayBox: $('replayBox'), matchList: $('matchList'),
       noteBars: $('noteBars'), confusionList: $('confusionList'),
       matrixWrap: $('matrixWrap'), matrix: $('matrix'),
@@ -557,6 +573,7 @@ var Stats = (function () {
     playedModes: playedModes,
     matchesOf: matchesOf,
     sparkPoints: sparkPoints,
+    byInstrument: byInstrument,
     matrixCells: matrixCells,
     dateStamp: dateStamp
   };

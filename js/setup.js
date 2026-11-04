@@ -7,7 +7,10 @@
  *
  * Every change goes through Store.change(), which validates and saves it.
  *
- * Depends on: MusicData, Store, Game.
+ * The Piano / Guitar picker is here too. Choosing an instrument saves it and
+ * loads its samples straight away (PianoAudio.load).
+ *
+ * Depends on: Instruments, MusicData, PianoAudio, Store, Game.
  */
 var Setup = (function () {
   'use strict';
@@ -46,12 +49,29 @@ var Setup = (function () {
     D.NOTES.forEach(function (n, pc) { sel.appendChild(new Option(n, String(pc))); });
   }
 
-  // "None", then every note across the three registers: C3 to B5.
-  function fillReferenceSelect(sel) {
+  // "None", then every note across the instrument's three registers: C3 to B5
+  // on the piano, E2 to D#5 on the guitar. Redrawn only when the instrument
+  // changes; options carry no listeners.
+  var refBuiltFor = null;
+  function fillReferenceSelect(sel, instrumentId) {
+    if (refBuiltFor === instrumentId) return;
+    refBuiltFor = instrumentId;
+    sel.textContent = '';
     sel.appendChild(new Option('None', '0'));
-    for (var m = D.REGISTER_LOW; m < D.REGISTER_LOW + 12 * D.REGISTER_COUNT; m++) {
+    var low = D.registerLowOf(instrumentId);
+    for (var m = low; m < low + 12 * D.REGISTER_COUNT; m++) {
       sel.appendChild(new Option(D.midiToName(m), String(m)));
     }
+  }
+
+  // A reference saved for another instrument, moved by octaves into this one's
+  // registers so it keeps its note name.
+  function refInRange(ref, instrumentId) {
+    if (!ref) return 0;
+    var low = D.registerLowOf(instrumentId), high = low + 12 * D.REGISTER_COUNT - 1;
+    while (ref < low) ref += 12;
+    while (ref > high) ref -= 12;
+    return ref;
   }
 
   function build() {
@@ -65,7 +85,7 @@ var Setup = (function () {
     D.REGISTERS.forEach(function (r) { els.regChips.appendChild(chip(r.label, { 'data-reg': r.index })); });
     fillRootSelect(els.ivlRootSel);
     fillRootSelect(els.chordRootSel);
-    fillReferenceSelect(els.refSel);
+    fillReferenceSelect(els.refSel, Store.settings().instrument);
   }
 
   /* ---------- showing ---------- */
@@ -119,10 +139,27 @@ var Setup = (function () {
     syncChips(els.qualChips, 'data-qual-chip', st.qualSel);
     setCount(els.qualCount, countOn(st.qualSel) + ' selected');
 
+    // Instrument. Guitar chords are voiced by root, so their registers are hidden.
+    var inst = Instruments.get(st.instrument);
+    var guitarChords = mode === 'chords' && inst.chordVoicing === 'guitar';
+    setActive(els.instSeg, 'data-inst', inst.id);
+    els.instNote.textContent = inst.keyboardInput ? ''
+      : mode === 'chords' ? 'Answers use buttons for now. Chords are strummed guitar shapes, so they go by root, not register.'
+      : 'Answers use buttons for now.';
+    els.regField.classList.toggle('hidden', guitarChords);
+
     els.regLabel.textContent = mode === 'chords' ? 'Registers of the root'
       : mode === 'intervals' ? 'Registers of the lower note' : 'Registers';
+    var regs = D.registersOf(inst.id);
+    each(els.regChips.querySelectorAll('[data-reg]'), function (b) { b.textContent = regs[+b.getAttribute('data-reg')].label; });
     syncChips(els.regChips, 'data-reg', st[regsKey(mode)]);
     setCount(els.regNote, mode === 'intervals' ? 'shared with Pitch' : '');
+    var capped = mode === 'intervals' && inst.maxSounding;
+    els.ivlCapNote.textContent = capped
+      ? 'High notes are limited on ' + inst.label.toLowerCase() + ': intervals that would go above ' + D.midiToName(inst.maxSounding) + ' are left out.'
+      : '';
+    els.ivlCapNote.classList.toggle('hidden', !capped);
+    fillReferenceSelect(els.refSel, inst.id);
 
     // Weak-note focus, and how much it has to lean on.
     els.focusToggle.classList.toggle('on', st.focusWeak);
@@ -153,11 +190,12 @@ var Setup = (function () {
     });
     els.guessNote.textContent = pinned ? 'The root is pinned, so you only guess the type.'
       : st.guessTarget === 'type' ? 'Type-only answers use buttons, not the piano.'
+      : st.guessTarget === 'root' && !inst.keyboardInput ? 'Name only the root.'
       : st.guessTarget === 'root' ? 'Name only the root; any octave works on the piano.'
       : 'Name the root and the type.';
     els.playNote.textContent = st.chordPlay === 'block'
-      ? 'All notes at once — harder to pick apart.'
-      : 'Notes roll out one by one, then strike together.';
+      ? (inst.chordVoicing === 'guitar' ? 'One quick strum — harder to pick apart.' : 'All notes at once — harder to pick apart.')
+      : (inst.chordVoicing === 'guitar' ? 'Notes roll out one by one, then strum together.' : 'Notes roll out one by one, then strike together.');
     els.diffNote.textContent = DIFFICULTY_NOTES[st.difficulty];
 
     var problem = Game.setupProblem(st);
@@ -204,7 +242,15 @@ var Setup = (function () {
     var st = Store.settings();
     var mode = st.mode;
 
-    if (b.hasAttribute('data-note')) {
+    if (b.hasAttribute('data-inst')) {
+      var id = b.getAttribute('data-inst');
+      if (id === st.instrument) return;
+      Store.change(function (s) {
+        s.instrument = id;
+        s.refPitch = refInRange(s.refPitch, id);
+      });
+      PianoAudio.load(id);
+    } else if (b.hasAttribute('data-note')) {
       if (!toggleKeepingMin('noteSel', +b.getAttribute('data-note'), 2, els.noteCount, 'notes')) return;
     } else if (b.hasAttribute('data-npreset')) {
       var all = b.getAttribute('data-npreset') === 'all';
@@ -273,6 +319,8 @@ var Setup = (function () {
       noteChips: $('noteChips'), noteCount: $('noteCount'),
       qualChips: $('qualChips'), qualCount: $('qualCount'),
       ivlChips: $('ivlChips'), ivlCount: $('ivlCount'),
+      instSeg: $('instSeg'), instNote: $('instNote'),
+      regField: $('regField'), ivlCapNote: $('ivlCapNote'),
       regLabel: $('regLabel'), regChips: $('regChips'), regNote: $('regNote'),
       focusToggle: $('focusToggle'), focusNote: $('focusNote'),
       refSel: $('refSel'), ivlRootSel: $('ivlRootSel'), chordRootSel: $('chordRootSel'),

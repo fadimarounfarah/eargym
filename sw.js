@@ -6,10 +6,19 @@
  *
  * All paths are relative to this file, so it works from any subfolder
  * (for example https://<user>.github.io/eargym/).
+ *
+ * The sample files are not listed here: they come from every instrument
+ * registered in js/instruments.js, so a new instrument's samples are
+ * precached as soon as it is registered there (still bump CACHE_VERSION).
  */
 'use strict';
 
-var CACHE_VERSION = 'eargym-v2';
+var CACHE_VERSION = 'eargym-v4';
+
+// Defines Instruments. The version in the URL makes every new CACHE_VERSION
+// fetch a fresh copy: without it a new worker could be handed the previous
+// instruments.js from the HTTP cache and precache the old sample list.
+importScripts('js/instruments.js?v=' + CACHE_VERSION);
 
 var PRECACHE = [
   './',
@@ -17,7 +26,9 @@ var PRECACHE = [
   'manifest.webmanifest',
   'css/styles.css',
   'vendor/tone/Tone.js',
+  'js/instruments.js',
   'js/data.js',
+  'js/guitar.js',
   'js/audio.js',
   'js/storage.js',
   'js/keyboard.js',
@@ -33,10 +44,9 @@ var PRECACHE = [
   'icons/apple-touch-icon.png'
 ];
 
-// The 20 Salamander samples: C, D#, F# and A in octaves 3 to 7.
-['C', 'Ds', 'Fs', 'A'].forEach(function (n) {
-  for (var oct = 3; oct <= 7; oct++) PRECACHE.push('vendor/salamander/' + n + oct + '.mp3');
-});
+// Every instrument's vendored samples: the 20 Salamander piano files and the
+// 18 Iowa guitar files.
+PRECACHE = PRECACHE.concat(Instruments.localSamplePaths());
 
 self.addEventListener('install', function (event) {
   event.waitUntil(

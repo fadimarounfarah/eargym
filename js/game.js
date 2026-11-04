@@ -4,7 +4,11 @@
  * history, summary). A mode only supplies its candidates, its questions and
  * how to grade an answer.
  *
- * Depends on: MusicData (js/data.js), Store (js/storage.js).
+ * The selected instrument (settings.instrument) decides the registers, whether
+ * the piano can answer, how chords are voiced (close stacks, or real guitar
+ * shapes strummed) and how high an interval may go.
+ *
+ * Depends on: Instruments, MusicData, Guitar (js/guitar.js), Store.
  */
 var Game = (function () {
   'use strict';
@@ -49,6 +53,7 @@ var Game = (function () {
   var ARP_GAP = 0.42;
   var ARP_BLOCK_PAUSE = 0.95;
   var REFERENCE_GAP = 0.7;        // reference note first, then the target
+  var STRUM_GAP = 0.035;          // guitar chords: between strings, low to high
 
   // Chords are always answered on a fixed two-octave board from C3, plus
   // drawn-but-unplayable keys on top for upper notes of high-rooted chords.
@@ -115,8 +120,10 @@ var Game = (function () {
   function guessesType(s) { return s.mode === 'chords' && s.guessTarget !== 'root'; }
 
   // Can this setup be answered on the piano? Intervals never; chord type-only
-  // never, because playing keys always implies a root.
+  // never, because playing keys always implies a root; and not with an
+  // instrument that has no keyboard input (the guitar, for now).
   function pianoAllowed(s) {
+    if (!Instruments.get(s.instrument).keyboardInput) return false;
     if (s.mode === 'intervals') return false;
     if (s.mode === 'chords' && s.guessTarget === 'type') return false;
     return true;
@@ -214,30 +221,62 @@ var Game = (function () {
 
   /* ---------- candidates and questions, per mode ---------- */
 
-  // Every selected note in every enabled register, as MIDI numbers.
-  function noteCandidates(noteSel, registers) {
+  // Every selected note in every enabled register, as MIDI numbers. `low` is
+  // the first register's lowest note (default: the piano's C3).
+  function noteCandidates(noteSel, registers, low) {
     var out = [];
     D.enabledRegisters(registers).forEach(function (reg) {
-      onIndices(noteSel).forEach(function (pc) { out.push(D.midiInRegister(pc, reg)); });
+      onIndices(noteSel).forEach(function (pc) { out.push(D.midiInRegister(pc, reg, low)); });
     });
     return out;
+  }
+
+  /* Interval keys "lowMidi|semi" for every enabled register, root and selected
+   * interval. An instrument with a `maxSounding` limit (the guitar: F5) drops
+   * every question whose top note would be above it. If that leaves fewer
+   * than 2 interval sizes, the highest sizes are dropped instead until 2 are
+   * left: each kept size uses its questions under the limit if it has any,
+   * else all of them. The pool is never empty. */
+  function intervalCandidates(s) {
+    var low = D.registerLowOf(s.instrument);
+    var cap = Instruments.get(s.instrument).maxSounding;
+    var semis = intervalList(s.ivlSel);
+    var all = [];
+    D.enabledRegisters(s.registers).forEach(function (reg) {
+      rootPool(s.ivlRoot).forEach(function (pc) {
+        semis.forEach(function (semi) { all.push({ low: D.midiInRegister(pc, reg, low), semi: semi }); });
+      });
+    });
+    function key(c) { return c.low + '|' + c.semi; }
+    if (cap === null || cap === undefined) return all.map(key);
+
+    function fits(c) { return c.low + c.semi <= cap; }
+    var under = all.filter(fits);
+    var sizesUnder = semis.filter(function (semi) { return under.some(function (c) { return c.semi === semi; }); });
+    if (sizesUnder.length >= Math.min(2, semis.length)) return under.map(key);
+
+    var keep = semis.slice().sort(function (a, b) { return a - b; }).slice(0, 2);
+    return all.filter(function (c) {
+      if (keep.indexOf(c.semi) === -1) return false;
+      return sizesUnder.indexOf(c.semi) === -1 || fits(c);
+    }).map(key);
   }
 
   // Keys are compared with !== to avoid repeats, so they are numbers or strings.
   function candidatesFor(s) {
     var out = [];
-    if (s.mode === 'notes') return noteCandidates(s.noteSel, s.registers);
-    var regs = D.enabledRegisters(registersFor(s));
-    if (s.mode === 'intervals') {
-      var semis = intervalList(s.ivlSel);
-      regs.forEach(function (reg) {
-        rootPool(s.ivlRoot).forEach(function (pc) {
-          semis.forEach(function (semi) { out.push(D.midiInRegister(pc, reg) + '|' + semi); });
-        });
+    if (s.mode === 'notes') return noteCandidates(s.noteSel, s.registers, D.registerLowOf(s.instrument));
+    if (s.mode === 'intervals') return intervalCandidates(s);
+    var quals = qualityList(s.qualSel);
+    // Guitar chords are voiced by root pitch class, so registers do not apply:
+    // one question per root and quality, keyed by the voicing's root note.
+    if (Instruments.get(s.instrument).chordVoicing === 'guitar') {
+      rootPool(s.chordRoot).forEach(function (pc) {
+        quals.forEach(function (q) { out.push(Guitar.voicing(pc, q).pitches[0] + '|' + q); });
       });
       return out;
     }
-    var quals = qualityList(s.qualSel);
+    var regs = D.enabledRegisters(registersFor(s));
     regs.forEach(function (reg) {
       rootPool(s.chordRoot).forEach(function (pc) {
         quals.forEach(function (q) { out.push(D.midiInRegister(pc, reg) + '|' + q); });
@@ -249,7 +288,7 @@ var Game = (function () {
   function makeQuestion(s, key, rng) {
     if (s.mode === 'notes') {
       // With a reference pitch set, it sounds first and the target follows.
-      var ref = s.refPitch || 0;
+      var ref = referenceFor(s);
       return {
         key: key, midi: key, pc: D.pc(key), name: D.pcToName(key), mult: 1,
         pitches: ref ? [ref, key] : [key],
@@ -271,12 +310,27 @@ var Game = (function () {
     }
     var q = parts[1];
     var arp = s.chordPlay === 'arp';
+    // A guitar strums its voicing (the arpeggio's final strike too); the
+    // piano stacks the shape on the root and strikes it at once.
+    var guitar = Instruments.get(s.instrument).chordVoicing === 'guitar';
     return {
       key: key, rootMidi: low, rootPc: D.pc(low), quality: q,
       text: D.chordName(D.pc(low), q),
-      pitches: D.chordPitches(low, q),
-      gap: arp ? ARP_GAP : 0, blockAfter: arp ? ARP_BLOCK_PAUSE : 0
+      pitches: guitar ? Guitar.voicing(D.pc(low), q).pitches : D.chordPitches(low, q),
+      gap: arp ? ARP_GAP : 0, blockAfter: arp ? ARP_BLOCK_PAUSE : 0,
+      strum: guitar ? STRUM_GAP : 0
     };
+  }
+
+  // The reference pitch, moved by octaves into the instrument's registers if
+  // it was saved for another instrument. 0 = none.
+  function referenceFor(s) {
+    var ref = s.refPitch || 0;
+    if (!ref) return 0;
+    var low = D.registerLowOf(s.instrument), high = low + 12 * D.REGISTER_COUNT - 1;
+    while (ref < low) ref += 12;
+    while (ref > high) ref -= 12;
+    return ref;
   }
 
   /* ---------- a match ---------- */
@@ -377,14 +431,15 @@ var Game = (function () {
         playAs: isChords ? s.chordPlay : null,
         notes: onIndices(s.noteSel).length,
         registers: registersFor(s).slice(),
-        ko: knockedOut
+        ko: knockedOut,
+        i: s.instrument
       });
     }
 
     /* Count one listen of the pending question. Replays cost health on Medium
      * and Hard, and can knock the player out.
      * Returns null if there is nothing to listen to, else
-     * { pitches, gap, blockAfter, replay, cost, over, knockedOut }. When `over`
+     * { pitches, gap, blockAfter, strum, replay, cost, over, knockedOut }. When `over`
      * is true the match just ended and no sound should play. */
     function listen() {
       if (over || !awaiting) return null;
@@ -396,11 +451,12 @@ var Game = (function () {
         if (health <= 0) {
           finish(true);
           Store.saveHistory();
-          return { pitches: [], gap: 0, blockAfter: 0, replay: true, cost: cost, over: true, knockedOut: true };
+          return { pitches: [], gap: 0, blockAfter: 0, strum: 0, replay: true, cost: cost, over: true, knockedOut: true };
         }
       }
       return {
         pitches: question.pitches.slice(), gap: question.gap, blockAfter: question.blockAfter,
+        strum: question.strum || 0,
         replay: replay, cost: cost, over: false, knockedOut: false
       };
     }
@@ -417,10 +473,10 @@ var Game = (function () {
       var plays = Math.max(1, roundPlays);
 
       grade.logs.forEach(function (log) {
-        Store.pushAnswer(log[0], log[1], log[2]);
+        Store.pushAnswer(log[0], log[1], log[2], s.instrument);
         if (String(log[1]) !== String(log[2])) recordMiss(log[0], log[1], log[2]);
       });
-      Store.pushPlay(grade.correct, plays, mode);
+      Store.pushPlay(grade.correct, plays, mode, s.instrument);
       answered++;
       rounds.push({ correct: grade.correct, plays: plays });
 
@@ -748,6 +804,7 @@ var Game = (function () {
     CHORD_BOARD: CHORD_BOARD,
     TIMEOUT_PENALTY: TIMEOUT_PENALTY,
     REFERENCE_GAP: REFERENCE_GAP,
+    STRUM_GAP: STRUM_GAP,
     DIFFICULTY: DIFFICULTY,
     MODES: MODES,
 
@@ -765,6 +822,8 @@ var Game = (function () {
     boardFor: boardFor,
     noteCandidates: noteCandidates,
     candidatesFor: candidatesFor,
+    intervalCandidates: intervalCandidates,
+    referenceFor: referenceFor,
     pickQuestion: pickQuestion,
     noteWeights: noteWeights,
     focusInfo: focusInfo,

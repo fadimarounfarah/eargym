@@ -194,6 +194,14 @@ Found while reading the file. None break the app today, but they are worth fixin
 
 Two smaller quirks, left as they are: a code comment lists a "random" chord playback style that was never built, and the match counter label says "Note" in every mode.
 
+## Planned work
+
+Not built yet. Described briefly so later steps start from the same idea.
+
+**Chord Progressions exercise.** A fourth exercise on the menu. Setup picks the roots and the chord qualities in play (same chips as Chords). Each question plays 2 to 4 random chords in a row, using the selected instrument's voicings. The player answers by clicking the chords in order, and each click is checked straight away: right turns green and moves on to the next chord, wrong shows the right chord and ends that question. Scoring, health and history logging go through the shared match loop like the other exercises; how a progression is scored and logged (per chord or per progression) is still to be decided.
+
+**Guitar fretboard answers.** An on-screen fretboard (six strings, frets 0 to 12) as an answer method while the guitar is selected, switchable with the note buttons the way Piano and Buttons switch today. The player taps a string and fret: Notes answer by pitch class, any position; chord root-only takes one tap. Until it exists, the guitar answers with buttons only.
+
 ## Notes for Claude Code
 
 The working app is `index.html` with the scripts and stylesheet it loads; `CLAUDE.md` has the file layout, what each script owns and the order they load in. Treat the code as the source of truth for exact numbers and edge cases. This doc describes behavior. The old single-file app is kept as `pitch-trainer-original.html` for reference only.
